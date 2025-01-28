@@ -1,0 +1,468 @@
+---
+title: "NHS2"
+output:
+  html_document:
+    df_print: paged
+---
+
+``` {r setup, include=FALSE}
+library(tidyverse)
+library(sf)
+library(stringr)
+library(stringi)
+library(ape)
+library(brms)
+#install.packages("umap")
+#library(umap)
+```
+
+# The Extended Natural History of Song Corpus
+Summary of Analyses
+
+``` {r load-and-filter-corpus, include=FALSE}
+# load corpus
+nhs2 <- read.csv('../data/metadata.csv', skip = 0, header = TRUE)
+
+nhs2 <- nhs2 %>%
+  mutate(glottocode = case_when(glottocode == ' oriy1255' ~ 'oriy1255', TRUE ~ glottocode)) %>%
+  mutate(region = case_when(region == 'Northwest Coast' ~ 'Northwest Coast and California', TRUE ~ region))
+
+n_songs <- nrow(nhs2)
+```
+
+``` {r check-missing-region-by-type, include=FALSE}
+# all possible region*type categories
+region_list <- unique(nhs2$region)
+type_list <- unique(nhs2$type)
+rt_full <- expand_grid(region_list, type_list) %>%
+  rename('region'='region_list','type'='type_list')
+
+# count all songs by region*type
+reg_by_type_unfilt <- nhs2 %>%
+  group_by(region, type) %>%
+  dplyr::summarise(n_unfilt = n())
+
+# fill in missing region*type rows
+reg_by_type_unfilt <- left_join(rt_full, reg_by_type_unfilt) %>%
+  mutate(n_unfilt = ifelse(is.na(n_unfilt), 0, n_unfilt))
+
+reg_by_type_counts <- reg_by_type_unfilt %>%
+  group_by(n_unfilt) %>%
+  dplyr::summarise(number_reg_x_types = n())
+
+```
+
+The Extended Natural History of Song (NHS2) contains $n =$ `r toString(n_songs)` songs. All `r nrow(region_list)` HRAF regions are represented and all `r nrow(type_list)` behavioural categories are represented. Out of `r nrow(reg_by_type_unfilt)` region $\times$ type categories: `r reg_by_type_counts$number_reg_x_types[reg_by_type_counts$n_unfilt==0]` categories have 0 representative songs, `r reg_by_type_counts$number_reg_x_types[reg_by_type_counts$n_unfilt==1]` categories have only 1 representative songs, and the rest have 2 or more.
+
+
+``` {r plot-geo-map, echo=FALSE, warnings=FALSE}
+## TODO: add the geolocations that Thanos found + calculate centroids of family langoids as approximate location
+
+# load map
+map <- read_sf("../data/world.geo.json")
+
+# get locations (NOTE: ~60 languages withou lat/long data)
+glottolog <- read.csv('../data/languoidGlottolog.csv', skip = 0, header = TRUE) %>%
+  dplyr::rename('glottocode' = 'id')
+
+# laod up new geolocations not found in glottolog
+new_geoloc <- read.csv('../data/new_geolocations.csv', skip=0, header=TRUE)
+
+# get glottocode counts and location
+lang_totals <- nhs2 %>%
+  group_by(glottocode) %>%
+  summarise(count = length(glottocode), region=max(region), num_reg=length(unique(region)))
+
+# merging locations and language families
+lang_wloc <- merge(lang_totals, glottolog[c('glottocode','family_id','latitude','longitude','name')])
+lang_wloc_new <- merge(lang_wloc, new_geoloc[c('glottocode','latitude','longitude')], by="glottocode", all.x=TRUE)
+lang_wloc_new <- lang_wloc_new %>%
+  mutate(latitude.x = case_when(is.na(latitude.x) ~ latitude.y, TRUE ~ latitude.x)) %>%
+  mutate(longitude.x = case_when(is.na(longitude.x) ~ longitude.y, TRUE ~ longitude.x))
+
+# counting number of languages per family
+lfam_totals <- lang_wloc %>%
+  group_by(family_id) %>%
+  summarise(count = sum(count)) %>%
+  rename(glottocode = family_id)
+  
+
+lfam_totals <- merge(lfam_totals, glottolog[c('glottocode','name')], by="glottocode") %>% rename(family_id=glottocode)
+
+diff_df <- setdiff(lang_totals$glottocode, lang_wloc$glottocode)
+
+no_loc <- lang_wloc %>%
+  filter(is.na(longitude))
+
+# plot map
+map_plot <- ggplot(map) + theme_void() +
+  geom_sf(data=map, colour="#cccccc", fill="#dddddd") +
+  geom_point(data=lang_wloc_new, aes(y=latitude.x, x=longitude.x, size=count), fill="red", shape=21, stroke=.3, colour="black") +
+  #geom_point(data=lang_wloc, aes(y=latitude, x=longitude, fill=region), shape=21, stroke=.3, colour="black") +
+  #facet_wrap(vars(region)) +
+  scale_fill_hue(l=100, c=40)
+  #labs(title="Songs in this corpus are globally distributed", caption="Locations determined by language using glottocode corpus") #+
+  #theme(legend.position="none")
+ggsave(map_plot, filename="map.png", height=6, width=10)
+map_plot
+```
+
+Note that the locations of all but one language are found in the appropriate HRAF region. The outlier is a Ladino song (locate near Istanbull according to Glottolog) which was actually recorded in Guatemala (Maya Region). 
+
+``` {r plot-lang-family-counts, echo=FALSE, warnings=FALSE}
+lfam_totals <- lfam_totals[order(-lfam_totals$count),]
+
+lfam_plot <- lfam_totals %>% mutate(name=fct_reorder(name,count)) %>%
+  ggplot(aes(x=count, y=name, label=count)) +
+  geom_col() +
+  geom_text(size=3, nudge_x=12) +
+  theme_bw() +
+  #guides(fill="none") +
+  labs(x="song count", title="# of songs by family")
+ggsave(lfam_plot, filename="language_family_counts.png", height=10, width=5)
+lfam_plot
+```
+
+``` {r plot-type-marginals}
+type_totals <- reg_by_type_unfilt %>%
+  group_by(type) %>%
+  summarise(total = sum(n_unfilt))
+type_totals
+
+type_totals %>%
+  ggplot(aes(x=type, y=total, fill=type, label=total)) +
+  geom_col() +
+  geom_label() +
+  theme_bw() +
+  guides(fill="none") +
+  labs(y="song count", x="song type", title="Number of songs of each behavioral context")
+```
+
+
+``` {r plot-region-marginals}
+reg_totals <- reg_by_type_unfilt %>%
+  group_by(region) %>%
+  summarise(reg_total = sum(n_unfilt))
+
+region_plot <- reg_totals %>% mutate(region=fct_reorder(region,reg_total)) %>%
+  ggplot(aes(y=region, x=reg_total, label=reg_total)) +
+  geom_col() +
+  geom_text(size=3, nudge_x=1) +
+  theme_bw() +
+  #guides(fill="none") +
+  labs(x="song count", title="Number of songs from each region")
+ggsave(region_plot, filename="region_count.png", height=6, width=10)
+region_plot
+```
+
+``` {r plot-song-representation}
+reg_by_type_unfilt2 <- merge(reg_by_type_unfilt, reg_totals, by='region')
+
+reg_by_type_unfilt2 %>% mutate(region=fct_reorder(region,reg_total)) %>%
+  mutate(n_unfilt = replace(n_unfilt, n_unfilt==0, NA)) %>%
+  ggplot(aes(x=type, y=region, fill=!is.na(n_unfilt))) + 
+  geom_bin2d() + 
+  scale_x_discrete(guide = guide_axis(n.dodge=2)) +
+  theme_minimal() +
+  labs(fill="represented", title="Which Regions and Types have Songs?")
+```
+
+``` {r plot-region-type-histograms}
+reg_by_type_unfilt %>%
+  ggplot(aes(x=type, y=n_unfilt, fill=type)) +
+  geom_col() +
+  facet_wrap(vars(region)) +
+  scale_x_discrete(guide = guide_axis(n.dodge=1, angle=70)) +
+  theme_bw() + theme(legend.position="bottom") +
+  #guides(x="none") +
+  labs(y="song count", x="", title="How many songs in each region?")
+```
+
+``` {r loading-and-comparing-acoustic-features}
+audio_feats <- read.csv('../data/audioExtraction_processed.csv', skip = 0, header = TRUE)
+audio_feats <- audio_feats[!audio_feats$song=="",]
+length(unique(audio_feats$song))
+
+audio_featsR <- read.csv('../data/audioExtraction_raw.csv', skip = 0, header = TRUE)
+audio_featsR <- audio_featsR[!audio_featsR$song=="",]
+length(unique(audio_featsR$song))
+
+audio_featsM <- read.csv('../data/audioExtraction_raw_median.csv', skip = 0, header = TRUE)
+audio_featsM <- audio_featsM[!audio_featsM$song=="",]
+length(unique(audio_featsM$song))
+
+# make tall df
+af_names <- colnames(audio_feats)[-1]
+af_namesM <- colnames(audio_featsM)[-1]
+afP_tall <- audio_feats %>% pivot_longer(cols=all_of(af_names), names_to='feature', values_to='processed')
+afR_tall <- audio_featsR %>% pivot_longer(cols=all_of(af_names), names_to='feature', values_to='raw')
+afM_tall <- audio_featsM %>% pivot_longer(cols=all_of(af_namesM), names_to='feature', values_to='median')
+
+af_tall <- merge(afP_tall,afR_tall)
+afm_tall <- merge(afR_tall,afM_tall)
+
+# include type
+af_tall <- merge(af_tall, nhs2[c('song','type')],by="song")
+afm_tall <- merge(afm_tall, nhs2[c('song','type')],by="song")
+
+# COMPARING RAW vs PROCESSED
+af_plot <- af_tall %>% ggplot(aes(x=raw,y=processed,color=type)) + geom_point() + 
+  facet_wrap(~feature, scale="free") + theme_minimal()
+#ggsave(af_plot, filename="af_compare_PvR.png", height=8, width=14)
+af_plot
+
+# COMPARING RAW MEAN vs MEDIAN
+afm_plot <- afm_tall %>% ggplot(aes(x=raw,y=median,color=type)) + geom_point() + 
+  facet_wrap(~feature, scale="free")# + theme_minimal()
+#ggsave(afm_plot, filename="af_compare_Mean_v_Median.png", height=8, width=14)
+af_plot
+```
+
+``` {r audio-features-compare}
+af_tall_fam <- merge(af_tall,nhs2[c('song','glottocode','region')], by='song')
+af_tall_fam <- merge(af_tall_fam,glottolog[c('glottocode','family_id')],by='glottocode')
+
+# type proccessed
+af_plot2 <- af_tall_fam %>% 
+  ggplot(aes(x=processed,fill=type)) + geom_density(alpha=.3)+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank(),axis.ticks.x=element_blank(),axis.ticks.y=element_blank()) + facet_wrap(~feature, scale="free", ncol=2)
+ggsave(af_plot2, filename="af_compare_type.png", height=18, width=8)
+
+# type raw
+af_plot3 <- af_tall_fam %>% 
+  ggplot(aes(x=raw,fill=type)) + geom_density(alpha=.3)+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank(),axis.ticks.x=element_blank(),axis.ticks.y=element_blank()) + facet_wrap(~feature, scale="free", ncol=2)
+ggsave(af_plot3, filename="af_compare_type_raw.png", height=18, width=8)
+
+# region processed
+af_plot4 <- af_tall_fam %>% 
+  ggplot(aes(x=processed,fill=region)) + geom_density(alpha=.3)+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank(),axis.ticks.x=element_blank(),axis.ticks.y=element_blank(), legend.position = "top") + facet_wrap(~feature, scale="free", ncol=2)
+ggsave(af_plot4, filename="af_compare_region.png", height=18, width=8)
+
+# top 3 families proccesed
+af_tall_topfam <- af_tall_fam[af_tall_fam$family_id %in% c('indo1319','aust1307','atla1278'),]
+af_plot5 <- af_tall_topfam %>% 
+  ggplot(aes(x=processed,fill=family_id)) + geom_density(alpha=.3) +
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank(),axis.ticks.x=element_blank(),axis.ticks.y=element_blank(), legend.position = "top") +
+  facet_wrap(~feature, scale="free", ncol=2)
+ggsave(af_plot5, filename="af_compare_top3families.png", height=18, width=8)
+
+# type boxplot proccessed
+af_plot6 <- af_tall_fam %>% 
+  ggplot(aes(y=processed,x=type, fill=type)) + geom_boxplot()+
+  theme(axis.text.x=element_blank(),axis.text.y=element_blank(),axis.ticks.x=element_blank(),axis.ticks.y=element_blank()) + facet_wrap(~feature, scale="free", ncol=2)
+ggsave(af_plot6, filename="af_compare_type_boxplot.png", height=24, width=8)
+```
+
+``` {r load_ICC_models}
+# data appended to df
+get_exp_var <- function(model, feature, df) {
+  # get posterior samples
+  post <- posterior_samples(model)
+  
+  # calculate explained variance for each 
+  type_sig <- post$sd_type__Intercept^2 / 
+    (post$sd_glottocode__Intercept^2 + post$sd_glottocode2__Intercept^2 + post$sd_region__Intercept^2+ post$sigma^2 + post$sd_type__Intercept^2)
+  tsig <- median(type_sig)
+  
+  phylo_sig <- post$sd_glottocode__Intercept^2 / 
+    (post$sd_glottocode__Intercept^2 + post$sd_glottocode2__Intercept^2 + post$sd_region__Intercept^2+ post$sigma^2 + post$sd_type__Intercept^2)
+  psig <- median(phylo_sig)
+
+  lang_sig <- post$sd_glottocode2__Intercept^2 / 
+    (post$sd_glottocode__Intercept^2 + post$sd_glottocode2__Intercept^2 + post$sd_region__Intercept^2+ post$sigma^2 + post$sd_type__Intercept^2)
+  lsig <- median(lang_sig)
+  
+  region_sig <- post$sd_region__Intercept^2 / 
+    (post$sd_glottocode__Intercept^2 + post$sd_glottocode2__Intercept^2 + post$sd_region__Intercept^2+ post$sigma^2 + post$sd_type__Intercept^2)
+  rsig <- median(region_sig)
+  
+  resid <- post$sigma^2 / 
+    (post$sd_glottocode__Intercept^2 + post$sd_glottocode2__Intercept^2 + post$sd_region__Intercept^2+ post$sigma^2 + post$sd_type__Intercept^2)
+  res <- median(resid)
+  
+  # append values to df
+  df[nrow(df)+1,1:2] <- c(feature,'type')
+  df[nrow(df),3] <- tsig
+  df[nrow(df)+1,1:2] <- c(feature,'phylo')
+  df[nrow(df),3] <- psig
+  df[nrow(df)+1,1:2] <- c(feature,'lang')
+  df[nrow(df),3] <- lsig
+  df[nrow(df)+1,1:2] <- c(feature,'region')
+  df[nrow(df),3] <- rsig
+  df[nrow(df)+1,1:2] <- c(feature,'residual')
+  df[nrow(df),3] <- res
+  
+  return(df)
+}
+
+# create explained variance dataframe
+ev_df <- data.frame(feature=character(), variable=character(),value=numeric(), stringsAsFactors=FALSE)
+
+# load model results
+# (ex_simple_lowenergy_mean)
+simp_le_model <- readRDS("../data/model_fit1/simp_le_model.Rds")
+ev_df <- get_exp_var(simp_le_model,'ex_simple_lowenergy_mean',ev_df)
+
+# rename and run (ex_simple_brightness_mean)
+simp_b_model <- readRDS("../data/model_fit1/simp_b_model.Rds")
+ev_df <- get_exp_var(simp_b_model,'ex_simple_brightness_mean',ev_df)
+
+# rename and run (ex_simple_roughness_mean)
+simp_r_model <- readRDS("../data/model_fit1/simp_r_model.Rds")
+ev_df <- get_exp_var(simp_r_model,'ex_simple_roughness_mean',ev_df)
+
+# rename and run (ex_simple_centroid_mean)
+simp_c_model <- readRDS("../data/model_fit1/simp_c_model.Rds")
+ev_df <- get_exp_var(simp_c_model,'ex_simple_centroid_mean',ev_df)
+
+# rename and run (ex_spectral_centroid_mean)
+spec_cm_model <- readRDS("../data/model_fit1/spec_cm_model.Rds")
+ev_df <- get_exp_var(spec_cm_model,'ex_spectral_centroid_mean',ev_df)
+
+# rename and run (ex_spectral_centroid_std)
+spec_csd_model <- readRDS("../data/model_fit1/spec_csd_model.Rds")
+ev_df <- get_exp_var(spec_csd_model,'ex_spectral_centroid_std',ev_df)
+
+# rename and run (ex_spectral_brightness_mean)
+spec_bm_model <- readRDS("../data/model_fit1/spec_bm_model.Rds")
+ev_df <- get_exp_var(spec_bm_model,'ex_spectral_brightness_mean',ev_df)
+
+# rename and run (ex_spectral_brightness_std)
+spec_bsd_model <- readRDS("../data/model_fit1/spec_bsd_model.Rds")
+ev_df <- get_exp_var(spec_bsd_model,'ex_spectral_brightness_std',ev_df)
+
+# rename and run (ex_spectral_spread_mean)
+spec_srm_model <- readRDS("../data/model_fit1/spec_srm_model.Rds")
+ev_df <- get_exp_var(spec_srm_model,'ex_spectral_spread_mean',ev_df)
+
+# rename and run (ex_spectral_spread_std)
+spec_srsd_model <- readRDS("../data/model_fit1/spec_srsd_model.Rds")
+ev_df <- get_exp_var(spec_srsd_model,'ex_spectral_spread_std',ev_df)
+
+# rename and run (ex_spectral_skewness_mean)
+spec_skm_model <- readRDS("../data/model_fit1/spec_skm_model.Rds")
+ev_df <- get_exp_var(spec_skm_model,'ex_spectral_skewness_mean',ev_df)
+
+# rename and run (ex_spectral_skewness_std)
+spec_sksd_model <- readRDS("../data/model_fit1/spec_sksd_model.Rds")
+ev_df <- get_exp_var(spec_sksd_model,'ex_spectral_skewness_std',ev_df)
+
+# rename and run (ex_spectral_kurtosis_mean)
+spec_km_model <- readRDS("../data/model_fit1/spec_km_model.Rds")
+ev_df <- get_exp_var(spec_km_model,'ex_spectral_kurtosis_mean',ev_df)
+
+# rename and run (ex_spectral_kurtosis_std)
+spec_ksd_model <- readRDS("../data/model_fit1/spec_ksd_model.Rds")
+ev_df <- get_exp_var(spec_ksd_model,'ex_spectral_kurtosis_std',ev_df)
+
+# rename and run (ex_spectral_rolloff95_mean)
+spec_95m_model <- readRDS("../data/model_fit1/spec_95m_model.Rds")
+ev_df <- get_exp_var(spec_95m_model,'ex_spectral_rolloff95_mean',ev_df)
+
+# rename and run (ex_spectral_rolloff95_std)
+spec_95sd_model <- readRDS("../data/model_fit1/spec_95sd_model.Rds")
+ev_df <- get_exp_var(spec_95sd_model,'ex_spectral_rolloff95_std',ev_df)
+
+# rename and run (ex_spectral_rolloff85_mean)
+spec_85m_model <- readRDS("../data/model_fit1/spec_85m_model.Rds")
+ev_df <- get_exp_var(spec_85m_model,'ex_spectral_rolloff85_mean',ev_df)
+
+# rename and run (ex_spectral_rolloff85_std)
+spec_85sd_model <- readRDS("../data/model_fit1/spec_85sd_model.Rds")
+ev_df <- get_exp_var(spec_85sd_model,'ex_spectral_rolloff85_std',ev_df)
+
+# rename and run (ex_spectral_spectenropy_mean)
+spec_spm_model <- readRDS("../data/model_fit1/spec_spm_model.Rds")
+ev_df <- get_exp_var(spec_spm_model,'ex_spectral_spectenropy_mean',ev_df)
+
+# rename and run (ex_spectral_spectenropy_std)
+spec_spsd_model <- readRDS("../data/model_fit1/spec_spsd_model.Rds")
+ev_df <- get_exp_var(spec_spsd_model,'ex_spectral_spectenropy_std',ev_df)
+
+# rename and run (ex_spectral_flatness_mean)
+spec_fm_model <- readRDS("../data/model_fit1/spec_fm_model.Rds")
+ev_df <- get_exp_var(spec_fm_model,'ex_spectral_flatness_mean',ev_df)
+
+# rename and run (ex_spectral_flatness_std)
+spec_fsd_model <- readRDS("../data/model_fit1/spec_fsd_model.Rds")
+ev_df <- get_exp_var(spec_fsd_model,'ex_spectral_flatness_std',ev_df)
+
+# rename and run (ex_spectral_roughness_mean)
+spec_rm_model <- readRDS("../data/model_fit1/spec_rm_model.Rds")
+ev_df <- get_exp_var(spec_rm_model,'ex_spectral_roughness_mean',ev_df)
+
+# rename and run (ex_spectral_roughness_std)
+spec_rsd_model <- readRDS("../data/model_fit1/spec_rsd_model.Rds")
+ev_df <- get_exp_var(spec_rsd_model,'ex_spectral_roughness_std',ev_df)
+
+# rename and run (ex_spectral_irregularity_mean)
+spec_im_model <- readRDS("../data/model_fit1/spec_im_model.Rds")
+ev_df <- get_exp_var(spec_im_model,'ex_spectral_irregularity_mean',ev_df)
+
+# rename and run (ex_spectral_irregularity_std)
+spec_isd_model <- readRDS("../data/model_fit1/spec_isd_model.Rds")
+ev_df <- get_exp_var(spec_isd_model,'ex_spectral_irregularity_std',ev_df)
+
+# rename and run (ex_tonal_keyclarity_mean)
+tone_km_model <- readRDS("../data/model_fit1/tone_km_model.Rds")
+ev_df <- get_exp_var(tone_km_model,'ex_tonal_keyclarity_mean',ev_df)
+
+# rename and run (ex_tonal_keyclarity_std)
+tone_ksd_model <- readRDS("../data/model_fit1/tone_ksd_model.Rds")
+ev_df <- get_exp_var(tone_ksd_model,'ex_tonal_keyclarity_std',ev_df)
+
+# rename and run (ex_tonal_mode_mean)
+tone_mm_model <- readRDS("../data/model_fit1/tone_mm_model.Rds")
+ev_df <- get_exp_var(tone_mm_model,'ex_tonal_mode_mean',ev_df)
+
+# rename and run (ex_tonal_mode_std)
+tone_msd_model <- readRDS("../data/model_fit1/tone_msd_model.Rds")
+ev_df <- get_exp_var(tone_msd_model,'ex_tonal_mode_std',ev_df)
+
+# rename and run (ex_rhythm_tempo_mean)
+rhym_tm_model <- readRDS("../data/model_fit1/rhym_tm_model.Rds")
+ev_df <- get_exp_var(rhym_tm_model,'ex_rhythm_tempo_mean',ev_df)
+
+# rename and run (ex_rhythm_tempo_std)
+rhym_tsd_model <- readRDS("../data/model_fit1/rhym_tsd_model.Rds")
+ev_df <- get_exp_var(rhym_tsd_model,'ex_rhythm_tempo_std',ev_df)
+
+# rename and run (ex_rhythm_attack_time_mean)
+rhym_am_model <- readRDS("../data/model_fit1/rhym_am_model.Rds")
+ev_df <- get_exp_var(rhym_am_model,'ex_rhythm_attack_time_mean',ev_df)
+
+# rename and run (ex_rhythm_attack_time_std)
+rhym_asd_model <- readRDS("../data/model_fit1/rhym_asd_model.Rds")
+ev_df <- get_exp_var(rhym_asd_model,'ex_rhythm_attack_time_std',ev_df)
+
+# rename and run (ex_rhythm_attack_slope_mean)
+rhym_sm_model <- readRDS("../data/model_fit1/rhym_sm_model.Rds")
+ev_df <- get_exp_var(rhym_sm_model,'ex_rhythm_attack_slope_mean',ev_df)
+
+# rename and run (ex_rhythm_attack_slope_std)
+rhym_ssd_model <- readRDS("../data/model_fit1/rhym_ssd_model.Rds")
+ev_df <- get_exp_var(rhym_ssd_model,'ex_rhythm_attack_slope_std',ev_df)
+
+# rename and run (ex_dynamics_rms_mean)
+dyna_rm_model <- readRDS("../data/model_fit1/dyna_rm_model.Rds")
+ev_df <- get_exp_var(dyna_rm_model,'ex_dynamics_rms_mean',ev_df)
+
+# rename and run (ex_dynamics_rms_std)
+dyna_rsd_model <- readRDS("../data/model_fit1/dyna_rsd_model.Rds")
+ev_df <- get_exp_var(dyna_rsd_model,'ex_dynamics_rms_std',ev_df)
+```
+
+``` {r playing-w-models}
+pp_check(rhym_tm_model, type="ecdf_overlay_grouped", group="type")
+pp_check(rhym_am_model, type="ecdf_overlay_grouped", group="type")
+```
+
+
+``` {r plot-model-results}
+#plot(rhym_tm_model)
+post_rtm <- posterior_samples(rhym_tm_model)
+
+ggplot(post_rtm, aes(x=sd_glottocode__Intercept, y=sd_type__Intercept)) + geom_point()
+```

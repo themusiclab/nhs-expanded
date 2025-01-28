@@ -1,0 +1,1933 @@
+``` {r setup, include=FALSE}
+library(tidyverse)
+library(ape)
+library(brms)
+library(ggtree)
+library(stringr)
+library(treeio)
+library(patchwork)
+library(geosphere)
+library(here)
+library(cowplot)
+set.seed(1)
+library(ggtreeExtra)
+library(viridis)
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+``` {r load-corpus}
+# load NHS corpus
+nhs2 <- read.csv('../data/metadata.csv', skip = 0, header = TRUE)
+nhs2$glottocode2 <- nhs2$glottocode
+nhs2$glottocode3 <- nhs2$glottocode
+
+# load glottolog and add family_id
+glog <- read.csv('../data/languoidGlottolog.csv', skip = 0, header = TRUE)
+fam_names <- glog %>% select(family_id) %>% 
+  merge(glog%>%select(name,id)%>%rename(family_id=id)) %>%
+  rename(family_name = name) %>% 
+  unique()
+glog <- merge(glog, fam_names)
+colnames(glog)[colnames(glog)=='id'] <- 'glottocode'
+nhs2 <- merge(
+  nhs2, 
+  glog[c('glottocode','family_id','family_name','latitude','longitude','name')]
+  )
+rm(glog)
+
+# load audio features
+audio_feats_med <- read.csv('../data/audio_Extraction_raw_median_all.csv', skip = 0, header = TRUE)
+audio_feats <- audio_feats_med[!audio_feats_med$song=="",]
+
+# get audio feature names
+af_names <- colnames(audio_feats)[-1] # remove "song"
+
+# merge metadata with audio features
+audio_data <- merge(nhs2, audio_feats, by.x="song")
+rm(audio_feats_med)
+
+
+## BUILD PHYLO COVARIANCE MATRIX ########################
+# load language tree
+global_tree <- read.nexus("../data/global-language-tree-MCC-labelled.tree")
+
+# edit tree labels to only show glottocode
+labels <- global_tree$tip.label
+new_labels <- str_extract(labels, '^[a-z]{4}[0-9]{4}')
+global_tree$tip.label <- new_labels
+
+# build a covariance matrix, remove songs not found in nhs2
+full_cor <- vcv.phylo(global_tree, model = "Brownian", corr = TRUE)
+phyl_cov <- full_cor[colnames(full_cor) %in% nhs2$glottocode, colnames(full_cor) %in% nhs2$glottocode]
+
+# #### cov matrix for families
+# # ie subtree
+ie_subtree <- tree_subset(global_tree,'russ1263',levels_back=7)
+# ie_full_corr <- vcv.phylo(ie_subtree, model = "Brownian", corr = TRUE)
+# ie_phyl_cov <- ie_full_corr[colnames(ie_full_corr) %in% nhs2$glottocode, colnames(ie_full_corr) %in% nhs2$glottocode]
+# 
+# # austronesian subtree
+an_subtree <- tree_subset(global_tree,'wole1240',levels_back=19)
+# an_full_corr <- vcv.phylo(an_subtree, model = "Brownian", corr = TRUE)
+# an_phyl_cov <- an_full_corr[colnames(an_full_corr) %in% nhs2$glottocode, colnames(an_full_corr) %in% nhs2$glottocode]
+# 
+# # atlantic-congo subtree
+ac_subtree <- tree_subset(global_tree,'lito1235',levels_back=21)
+# ac_full_corr <- vcv.phylo(ac_subtree, model = "Brownian", corr = TRUE)
+# ac_phyl_cov <- ac_full_corr[colnames(ac_full_corr) %in% nhs2$glottocode, colnames(ac_full_corr) %in% nhs2$glottocode]
+
+# check: all glottocodes in corpus present in tree, remove those that aren't
+nhs2[nhs2$glottocode %in% new_labels,]
+audio_data_lim <- audio_data[audio_data$glottocode %in% new_labels,]
+phyl_cov <- full_cor[colnames(full_cor) %in% nhs2$glottocode, colnames(full_cor) %in% nhs2$glottocode]
+
+
+## BUILD GEOSPACIAL COVARIANCE MATRIX  ##################
+# get proximity
+langloc <- audio_data_lim %>% 
+  distinct(glottocode, .keep_all=TRUE)
+
+# create distance matrix
+dmat = distm(
+  langloc[c("longitude","latitude")]
+  #fun=distVincentySphere
+  )
+rownames(dmat) <- langloc$glottocode
+colnames(dmat) <- langloc$glottocode
+rm(langloc)
+
+# log distance matrix
+# assumes: cov exponentially prop.to geoDist
+logdmat <- log(dmat)
+diag(logdmat) <- 0
+logdmat <- logdmat / max(logdmat)
+prox_cov <- (1 - logdmat)
+rm(dmat)
+rm(logdmat)
+
+# remove stuff
+rm(global_tree)
+rm(full_cor)
+
+# z-score data
+af_zscored <- audio_data_lim
+af_zscored[af_names] <- scale(af_zscored[af_names])
+colnames(af_zscored)[colnames(af_zscored)=="glottocode"] <- "language"
+colnames(af_zscored)[colnames(af_zscored)=="glottocode2"] <- "phylogeny"
+colnames(af_zscored)[colnames(af_zscored)=="glottocode3"] <- "geospacial.pos"
+
+audio_data[af_names] <- scale(audio_data[af_names])
+
+# create explained variance df
+ev_df <- data.frame(feature=character(), variable=character(), model=character(), value=numeric(), stringsAsFactors=FALSE)
+```
+
+``` {r funx}
+# create new init_models for each model
+create_init_models <- function(df, phyl_cov, prox_cov, family="global") {
+  m1 <- brm(
+    # formula
+    ex_rhythm_attack_time_mean ~ 1 +
+      (1 | gr(language)),
+      # (1 | gr(geospacial.pos, cov=prox_cov)) +
+      # (1 | gr(phylogeny, cov=phyl_cov)) +
+      # (1 | gr(type)),
+    # data
+    data = df,
+    data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+    # set reasonable priors
+    prior = c(
+      prior(normal(0, .5), class = Intercept),
+      prior(exponential(5), class = sd),
+      prior(exponential(5), class = sigma)
+    ),
+    control = list(adapt_delta = 0.8),
+    cores = 4,
+    iter = 1
+  )
+  init_filename <- paste(here(),"/results","/fits/",family,"/m1/","init_model",".Rds",sep="")
+  saveRDS(m1,init_filename)
+  
+  m1b <- brm(
+    # formula
+    ex_rhythm_attack_time_mean ~ 1 +
+      # (1 | gr(language)) +
+      # (1 | gr(geospacial.pos, cov=prox_cov)) +
+      # (1 | gr(phylogeny, cov=phyl_cov)) +
+      (1 | gr(type)),
+    # data
+    data = df,
+    data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+    # set reasonable priors
+    prior = c(
+      prior(normal(0, .5), class = Intercept),
+      prior(exponential(5), class = sd),
+      prior(exponential(5), class = sigma)
+    ),
+    control = list(adapt_delta = 0.8),
+    cores = 4,
+    iter = 1
+  )
+  init_filename <- paste(here(),"/results","/fits/",family,"/m1b/","init_model",".Rds",sep="")
+  saveRDS(m1b,init_filename)
+  
+  m2 <- brm(
+    # formula
+    ex_rhythm_attack_time_mean ~ 1 +
+      (1 | gr(language)) +
+      # (1 | gr(geospacial.pos, cov=prox_cov)) +
+      # (1 | gr(phylogeny, cov=phyl_cov)) +
+      (1 | gr(type)),
+    # data
+    data = df,
+    data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+    # set reasonable priors
+    prior = c(
+      prior(normal(0, .5), class = Intercept),
+      prior(exponential(5), class = sd),
+      prior(exponential(5), class = sigma)
+    ),
+    control = list(adapt_delta = 0.8),
+    cores = 4,
+    iter = 1
+  )
+  init_filename <- paste(here(),"/results","/fits/",family,"/m2/","init_model",".Rds",sep="")
+  saveRDS(m2,init_filename)
+  
+  m3a <- brm(
+    # formula
+    ex_rhythm_attack_time_mean ~ 1 +
+      (1 | gr(language)) +
+      (1 | gr(geospacial.pos, cov=prox_cov)) +
+      # (1 | gr(phylogeny, cov=phyl_cov)) +
+      (1 | gr(type)),
+    # data
+    data = df,
+    data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+    # set reasonable priors
+    prior = c(
+      prior(normal(0, .5), class = Intercept),
+      prior(exponential(5), class = sd),
+      prior(exponential(5), class = sigma)
+    ),
+    control = list(adapt_delta = 0.8),
+    cores = 4,
+    iter = 1
+  )
+  init_filename <- paste(here(),"/results","/fits/",family,"/m3a/","init_model",".Rds",sep="")
+  saveRDS(m3a,init_filename)
+  
+  m3b <- brm(
+    # formula
+    ex_rhythm_attack_time_mean ~ 1 +
+      (1 | gr(language)) +
+      # (1 | gr(geospacial.pos, cov=prox_cov)) +
+      (1 | gr(phylogeny, cov=phyl_cov)) +
+      (1 | gr(type)),
+    # data
+    data = df,
+    data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+    # set reasonable priors
+    prior = c(
+      prior(normal(0, .5), class = Intercept),
+      prior(exponential(5), class = sd),
+      prior(exponential(5), class = sigma)
+    ),
+    control = list(adapt_delta = 0.8),
+    cores = 4,
+    iter = 1
+  )
+  init_filename <- paste(here(),"/results","/fits/",family,"/m3b/","init_model",".Rds",sep="")
+  saveRDS(m3b,init_filename)
+  
+  
+  m4 <- brm(
+    # formula
+    ex_rhythm_attack_time_mean ~ 1 +
+      (1 | gr(language)) +
+      (1 | gr(geospacial.pos, cov=prox_cov)) +
+      (1 | gr(phylogeny, cov=phyl_cov)) +
+      (1 | gr(type)),
+    # data
+    data = df,
+    data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+    # set reasonable priors
+    prior = c(
+      prior(normal(0, .5), class = Intercept),
+      prior(exponential(5), class = sd),
+      prior(exponential(5), class = sigma)
+    ),
+    control = list(adapt_delta = 0.8),
+    cores = 4,
+    iter = 1
+  )
+  init_filename <- paste(here(),"/results","/fits/",family,"/m4/","init_model",".Rds",sep="")
+  saveRDS(m4,init_filename)
+}
+
+
+# calculate ICC from posterior samples
+calc_ICC <- function(post, df, feature, model="m4", family="global", func=mean) {
+  # calculate denominator 
+  if (model=="m1") {
+    denom <- post$sd_language__Intercept^2 +
+      post$sigma^2
+  } else if (model=="m1b") {
+    denom <- post$sd_type__Intercept^2 +
+      post$sigma^2
+  } else if (model=="m2") {
+    denom <- post$sd_type__Intercept^2 +
+      post$sd_language__Intercept^2 +
+      post$sigma^2
+  } else if (model=="m3a") {
+    denom <- post$sd_type__Intercept^2 +
+      post$sd_language__Intercept^2 +
+      post$sd_geospacial.pos__Intercept^2 + 
+      post$sigma^2
+  } else if (model=="m3b") {
+    denom <- post$sd_type__Intercept^2 +
+      post$sd_language__Intercept^2 +
+      post$sd_phylogeny__Intercept^2 +
+      post$sigma^2
+  } else if (model=="m4") {
+    denom <- post$sd_type__Intercept^2 +
+      post$sd_language__Intercept^2 +
+      post$sd_phylogeny__Intercept^2 +
+      post$sd_geospacial.pos__Intercept^2 + 
+      post$sigma^2
+  }
+  
+  # calculate explained variance for each variable and append
+  if (model != "m1") {
+    type_sig <- post$sd_type__Intercept^2 / (denom)
+    tsig <- func(type_sig)
+    df[nrow(df)+1,1:4] <- c(feature,'type',model,family)
+    df[nrow(df),5] <- tsig
+  }
+  
+  if (model != "m1b") {
+    lang_sig <- post$sd_language__Intercept^2 / (denom)
+    lsig <- func(lang_sig)
+    df[nrow(df)+1,1:4] <- c(feature,'language',model,family)
+    df[nrow(df),5] <- lsig
+  }
+  
+  if (model == "m3b" || model == "m4") {
+    phylo_sig <- post$sd_phylogeny__Intercept^2 / (denom)
+    psig <- func(phylo_sig)
+    df[nrow(df)+1,1:4] <- c(feature,'phylogeny',model,family)
+    df[nrow(df),5] <- psig
+  }
+  
+  if (model == "m3a" || model == "m4") {
+    region_sig <- post$sd_geospacial.pos__Intercept^2 / (denom)
+    rsig <- func(region_sig)
+    df[nrow(df)+1,1:4] <- c(feature,'proximity',model,family)
+    df[nrow(df),5] <- rsig
+  }
+  
+  resid <- post$sigma^2 / (denom)
+  res <- func(resid)
+  df[nrow(df)+1,1:4] <- c(feature,'residual',model,family)
+  df[nrow(df),5] <- res
+  
+  return(df)
+}
+
+# loading (and fitting if non existant) group-effects models
+fit_or_load <- function(df, af, model_type="m4", nsamp=6000, family="global") {
+  # check if model fit already exists
+  filename <- paste(here(),"/results","/fits/",family,"/",model_type,"/",af,"_n",nsamp,".Rds",sep="")
+  
+  if (file.exists(filename)) { # load existing model fit
+    print(paste("Loading from file...",filename))
+    return(readRDS(filename))
+  }
+  print(paste("No file found, fitting model... ",af))
+  
+  #### for ex_rhythm_attack_time_mean, no outlier
+  df_no <- df %>% filter(song != "NHS2-BLMM")
+  
+  # load init model
+  init_filename <- paste(here(),"/results","/fits/",family,"/",model_type,"/","init_model",".Rds",sep="")
+  model <- readRDS(init_filename)
+  
+  # set acoustic feature to be fit (af) and fit model
+  model <- switch(af,
+                  ex_rhythm_attack_time_mean = update(model, # remove outlier point (NHS2-BLMM)
+                                                    ex_rhythm_attack_time_mean ~ .,
+                                                    newdata=df_no, iter=nsamp, cores=4),
+                  ex_simple_lowenergy_mean = update(model, 
+                                                    ex_simple_lowenergy_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_simple_brightness_mean = update(model, 
+                                                    ex_simple_brightness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_simple_roughness_mean = update(model, 
+                                                    ex_simple_roughness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_simple_centroid_mean = update(model, 
+                                                    ex_simple_centroid_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_centroid_mean = update(model, 
+                                                    ex_spectral_centroid_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_brightness_mean = update(model, 
+                                                    ex_spectral_brightness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_spread_mean = update(model, 
+                                                    ex_spectral_spread_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_skewness_mean = update(model, 
+                                                    ex_spectral_skewness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_kurtosis_mean = update(model, 
+                                                    ex_spectral_kurtosis_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_rolloff95_mean = update(model, 
+                                                    ex_spectral_rolloff95_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_rolloff85_mean = update(model, 
+                                                    ex_spectral_rolloff85_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_spectenropy_mean = update(model, 
+                                                    ex_spectral_spectenropy_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_flatness_mean = update(model, 
+                                                    ex_spectral_flatness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_roughness_mean = update(model, 
+                                                    ex_spectral_roughness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_irregularity_mean = update(model, 
+                                                    ex_spectral_irregularity_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_tonal_keyclarity_mean = update(model, 
+                                                    ex_tonal_keyclarity_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_tonal_mode_mean = update(model, 
+                                                    ex_tonal_mode_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_tempo_mean = update(model, 
+                                                    ex_rhythm_tempo_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_attack_time_mean = update(model, 
+                                                    ex_rhythm_attack_time_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_attack_slope_mean = update(model, 
+                                                    ex_rhythm_attack_slope_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_dynamics_rms_mean = update(model, 
+                                                    ex_dynamics_rms_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_centroid_std = update(model, 
+                                                    ex_spectral_centroid_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_brightness_std = update(model, 
+                                                    ex_spectral_brightness_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_spread_std = update(model, 
+                                                    ex_spectral_spread_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_skewness_std = update(model, 
+                                                    ex_spectral_skewness_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_kurtosis_std = update(model, 
+                                                    ex_spectral_kurtosis_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_rolloff95_std = update(model, 
+                                                    ex_spectral_rolloff95_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_rolloff85_std = update(model, 
+                                                    ex_spectral_rolloff85_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_spectenropy_std = update(model, 
+                                                    ex_spectral_spectenropy_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_flatness_std = update(model, 
+                                                    ex_spectral_flatness_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_roughness_std = update(model, 
+                                                    ex_spectral_roughness_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_irregularity_std = update(model, 
+                                                    ex_spectral_irregularity_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_tonal_keyclarity_std = update(model, 
+                                                    ex_tonal_keyclarity_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_tonal_mode_std = update(model, 
+                                                    ex_tonal_mode_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_tempo_std = update(model, 
+                                                    ex_rhythm_tempo_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_attack_time_std = update(model, 
+                                                    ex_rhythm_attack_time_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_attack_slope_std = update(model, 
+                                                    ex_rhythm_attack_slope_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_dynamics_rms_std = update(model, 
+                                                    ex_dynamics_rms_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4)
+                  )
+  
+  # save and return
+  print("...saving model")
+  saveRDS(model, file=filename)
+  return(model)
+}
+```
+
+``` {r testing-site}
+## init model
+# m1b <- brm(
+#   # formula
+#   ex_rhythm_attack_time_mean ~ 1 +
+#     # (1 | gr(language)) +
+#     # (1 | gr(geospacial.pos, cov=prox_cov)) +
+#     # (1 | gr(phylogeny, cov=phyl_cov)) +
+#     (1 | gr(type)),
+#   # data
+#   data = df,
+#   data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+#   # set reasonable priors
+#   prior = c(
+#     prior(normal(0, .5), class = Intercept),
+#     prior(exponential(5), class = sd),
+#     prior(exponential(5), class = sigma)
+#   ),
+#   control = list(adapt_delta = 0.8),
+#   cores = 4,
+#   iter = 1
+# )
+# init_filename <- paste(here(),"/results","/fits/",model_type,"/","init_model",".Rds",sep="")
+# saveRDS(m1b, file=init_filename)
+
+model_types <- c("m1","m1b","m2","m3a","m3b","m4")
+# model_types <- c("m4")
+families <- c('global','big3') # 'ac','an','ie',
+
+# fit_or_load(af_zscored, af_names[1], model_type='m1b',family='ac')
+# ie_data <- af_zscored %>% filter(family_id=="indo1319")
+# an_data <- af_zscored %>% filter(family_id=="aust1307")
+# ac_data <- af_zscored %>% filter(family_id=="atla1278")
+big3_data <- af_zscored %>% 
+  filter(family_id=="atla1278" | family_id=="aust1307" | family_id=="indo1319")
+
+ev_df <- data.frame(
+  feature=character(), variable=character(), model=character(), family=character(),
+  value=numeric(), stringsAsFactors=FALSE
+  )
+
+# global
+for (af in af_names) {
+  for (m in model_types) {
+    x <- fit_or_load(af_zscored, af, model_type=m)
+    post <- as_draws_df(x)
+    ev_df <- calc_ICC(post,ev_df,af, model=m)
+  }
+}
+# big3
+for (af in af_names) {
+  for (m in model_types) {
+    x <- fit_or_load(big3_data, af, model_type=m, family="big3")
+    post <- as_draws_df(x)
+    ev_df <- calc_ICC(post,ev_df,af, model=m, family="big3")
+  }
+}
+# # ie
+# for (af in af_names) {
+#   for (m in model_types) {
+#     x <- fit_or_load(ie_data, af, model_type=m, family="ie")
+#     post <- as_draws_df(x)
+#     ev_df <- calc_ICC(post,ev_df,af, model=m, family="ie")
+#   }
+# }
+# # an
+# for (af in af_names) {
+#   for (m in model_types) {
+#     x <- fit_or_load(an_data, af, model_type=m, family="an")
+#     post <- as_draws_df(x)
+#     ev_df <- calc_ICC(post,ev_df,af, model=m, family="an")
+#   }
+# }
+# # ac
+# for (af in af_names) {
+#   for (m in model_types) {
+#     x <- fit_or_load(ac_data, af, model_type=m, family="ac")
+#     post <- as_draws_df(x)
+#     ev_df <- calc_ICC(post,ev_df,af, model=m, family="ac")
+#   }
+# }
+
+# saveRDS(ev_df, file=paste(here(),"/results/ICC.Rds",sep="")) # all models
+ev_df <- readRDS(paste(here(),"/results/ICC.Rds",sep=""))
+```
+
+``` {r compare-phylo-to-prox}
+phyl_df <- phyl_cov %>% as.data.frame() %>% mutate(lang=rownames(phyl_cov)) %>% pivot_longer(!lang) %>% rename(phyl=value)
+prox_df <- prox_cov %>% as.data.frame() %>% mutate(lang=rownames(prox_cov)) %>% pivot_longer(!lang) %>% rename(prox=value)
+pp_df <- merge(phyl_df,prox_df) %>% filter(lang!=name)
+
+lm(prox ~ phyl, pp_df)
+pp_df %>% ggplot(aes(y=prox,x=phyl)) + geom_point() + geom_smooth(method=lm, se=TRUE)
+```
+
+``` {r model-comparison}
+aic <- function(model,k=2) {
+  mll <- as_draws_df(model) %>% mutate(ll = (lp__ - lprior)) %>% select(ll) %>% max()
+  return(2*k - 2*mll)
+}
+bic <- function(model, k=2, obs=849) {
+  mll <- as_draws_df(model) %>% mutate(ll = (lp__ - lprior)) %>% select(ll) %>% max()
+  return(log(obs)*k - 2*mll)
+}
+
+mc_df <- data.frame(feature=character(),family=character(),model=character(),
+                    aic=numeric(),bic=numeric(),d_aic_bic=numeric())
+model_types <- c("m1","m1b","m2","m3a","m3b","m4")
+families <- c("global","big3","ie","ac","an")
+# for (af in af_names) {
+#   for (m in model_types) {
+#     for (fam in families) {
+#       k <- case_when(
+#         m=="m1" ~ 1,
+#         m=="m1b" ~ 1,
+#         m=="m2" ~ 2,
+#         m=="m3a" ~ 3,
+#         m=="m3b" ~ 3,
+#         m=="m4" ~ 4,
+#         .default = 0
+#       )
+#       
+#       model <- fit_or_load(NA,af,model_type=m,family=fam)
+#       m_aic <- aic(model,k=k)
+#       m_bic <- bic(model,k=k)
+#       mc_df[nrow(mc_df)+1,1:3] <- c(af,fam,m)
+#       mc_df[nrow(mc_df),4:6] <- c(m_aic,m_bic,(m_aic-m_bic))
+#     }
+#   }
+# }
+
+# saveRDS(mc_df,paste(here(),"/results/model_AICs.Rds",sep=""))
+mc_df <- readRDS(paste(here(),"/results/model_AICs.Rds",sep=""))
+
+mc_df %>% 
+  ggplot(aes(x=aic,fill=model)) + 
+  geom_density(alpha=.7) + labs(title="model comparisons") +
+  facet_wrap(vars(family), scales="free", ncol=1)
+```
+
+``` {r plotting-by-feature}
+ev_df
+
+plot_by_feature <- function(ev_df, af) {
+  # ordering
+  feat_plot <- ev_df %>% filter(feature==af) %>%
+    mutate(m_ord = case_when(
+      model=='m1'~1,
+      model=="m1b"~2,
+      model=='m2'~3,
+      model=='m3a'~4,
+      model=='m3b'~5,
+      model=='m4'~6,
+      )) %>%
+    mutate(var_ord = case_when(
+      variable=='type'~1,
+      variable=='phylogeny'~3,
+      variable=='language'~2,
+      variable=='proximity'~4,
+      variable=='residual'~5,
+      )) %>%
+    ggplot(aes(y=reorder(model,m_ord),x=value,fill=reorder(variable,-var_ord))) +
+    geom_bar(stat="identity") +
+    scale_fill_discrete(type=c('#eeeeee','#80B3FF','#74F6A7','#43A680','#dd8091'),
+                        labels=c('residual','proximity','phylogeny','language','type'),
+                        guide = guide_legend(reverse = TRUE)) +
+    geom_vline(xintercept=1) + geom_vline(xintercept=0) + 
+    geom_vline(xintercept=.5,  color="#bbbbbb", linewidth=.25) + 
+    geom_vline(xintercept=.25, color="#bbbbbb", linewidth=.25, linetype = "dashed") + 
+    geom_vline(xintercept=.75, color="#bbbbbb", linewidth=.25, linetype = "dashed") + 
+    # facet_grid(rows=vars(grp), scales="free", space="free") +
+    xlim(0,.5) +
+    labs(title=af, fill="variable", x="", y="") + 
+    theme_minimal() +
+    theme(
+      axis.ticks = element_blank(),
+      panel.grid = element_blank(),
+      axis.text.y = element_text(hjust=1,size=8),
+      plot.margin = unit(c(.1,.1,.1,.1),"cm")
+      )
+  return(feat_plot)
+}
+
+ICC_by_feat_plot <- plot_by_feature(ev_df,af_names[1]) +
+  plot_by_feature(ev_df,af_names[2])  + plot_by_feature(ev_df,af_names[3]) +
+  plot_by_feature(ev_df,af_names[4])  + plot_by_feature(ev_df,af_names[5]) +
+  plot_by_feature(ev_df,af_names[6])  + plot_by_feature(ev_df,af_names[7]) +
+  plot_by_feature(ev_df,af_names[8])  + plot_by_feature(ev_df,af_names[9]) +
+  plot_by_feature(ev_df,af_names[10]) + plot_by_feature(ev_df,af_names[11]) +
+  plot_by_feature(ev_df,af_names[12]) + plot_by_feature(ev_df,af_names[13]) +
+  plot_by_feature(ev_df,af_names[14]) + plot_by_feature(ev_df,af_names[15]) +
+  plot_by_feature(ev_df,af_names[16]) + plot_by_feature(ev_df,af_names[17]) +
+  plot_by_feature(ev_df,af_names[18]) + plot_by_feature(ev_df,af_names[19]) +
+  plot_by_feature(ev_df,af_names[20]) + plot_by_feature(ev_df,af_names[21]) +
+  plot_by_feature(ev_df,af_names[22]) + plot_by_feature(ev_df,af_names[23]) +
+  plot_by_feature(ev_df,af_names[24]) + plot_by_feature(ev_df,af_names[25]) +
+  plot_by_feature(ev_df,af_names[26]) + plot_by_feature(ev_df,af_names[27]) +
+  plot_by_feature(ev_df,af_names[28]) + plot_by_feature(ev_df,af_names[29]) +
+  plot_by_feature(ev_df,af_names[30]) + plot_by_feature(ev_df,af_names[31]) +
+  plot_by_feature(ev_df,af_names[32]) + plot_by_feature(ev_df,af_names[33]) +
+  plot_by_feature(ev_df,af_names[34]) + plot_by_feature(ev_df,af_names[35]) +
+  plot_by_feature(ev_df,af_names[36]) + plot_by_feature(ev_df,af_names[37]) +
+  plot_by_feature(ev_df,af_names[38]) + 
+  plot_layout(ncol=3, guide="collect")
+# ggsave2("ICC_by_feat_plot2.png", ICC_by_feat_plot, height=16, width=9)
+```
+
+``` {r plotting-by-model}
+name_of_feature <- function(feature) {
+  x <- strsplit(feature,'_')
+  x <- x[[1]]
+  
+  if (length(x)==4) {
+    return(paste(x[3],x[4],sep=" "))
+  } else {
+    return(paste(x[3],x[4],x[5],sep=" "))
+  }
+}
+
+plot_by_model <- function(ev_df, model_type) {
+  ev_df$feature_n <- sapply(ev_df$feature,name_of_feature)
+  
+  var_colors <- switch(model_type,
+    m1 = c('#eeeeee','#43A680'),
+    m1b = c('#eeeeee','#0F7173'),
+    m2 = c('#eeeeee','#43A680','#0F7173'),
+    m3a = c('#eeeeee','#80B3FF','#43A680','#0F7173'),
+    m3b = c('#eeeeee','#74F6A7','#43A680','#0F7173'),
+    m4 = c('#eeeeee','#80B3FF','#74F6A7','#43A680','#0F7173')
+  )
+  var_labels <- switch(model_type,
+    m1 = c('residual','language'),
+    m1b = c('residual','type'),
+    m2 = c('residual','language','type'),
+    m3a = c('residual','proximity','language','type'),
+    m3b = c('residual','phylogeny','language','type'),
+    m4 = c('residual','proximity','phylogeny','language','type')           
+  )
+  
+  # ordering
+  ev_df <- ev_df %>% filter(model==model_type) %>%
+    mutate(var_ord = case_when(
+      variable=='type'~1,
+      variable=='phylogeny'~3,
+      variable=='language'~2,
+      variable=='proximity'~4,
+      variable=='residual'~5,
+      )) %>%
+    group_by(feature) %>%
+    mutate(ft_ord=value[feature==feature&variable=='residual']) %>% 
+    ungroup()
+  
+  # plotting
+  expvar_med_plot <- ev_df %>% filter(model==model_type) %>%
+    mutate(grp = case_when(
+      grepl("spectral",feature) ~ "spectral",
+      grepl("tonal",feature) ~ "tonal",
+      grepl("rhythm",feature) ~ "rhythm",
+      .default="other"
+    )) %>%
+    mutate(grp = factor(grp, levels=c("tonal","rhythm","spectral","other"))) %>%
+    ggplot(aes(y=reorder(feature_n,-ft_ord),x=value,fill=reorder(variable,-var_ord))) +
+    geom_bar(stat="identity") +
+    scale_fill_discrete(type=var_colors,
+                        labels=var_labels,
+                        guide = guide_legend(reverse = TRUE)) +
+    geom_vline(xintercept=1) + geom_vline(xintercept=0) + 
+    geom_vline(xintercept=.5,  color="#bbbbbb", linewidth=.25) + 
+    geom_vline(xintercept=.25, color="#bbbbbb", linewidth=.25, linetype = "dashed") + 
+    geom_vline(xintercept=.75, color="#bbbbbb", linewidth=.25, linetype = "dashed") + 
+    facet_grid(rows=vars(grp), scales="free", space="free") +
+    xlim(0,1) +
+    labs(title=model_type, fill="variable", x="ICC", y="acoustic feature") + 
+    theme_minimal() +
+    theme(
+      axis.ticks = element_blank(),
+      panel.grid = element_blank(),
+      axis.text.y = element_text(hjust=1,size=8),
+      plot.margin = unit(c(.1,.1,.1,.1),"cm")
+      )
+  return(expvar_med_plot)
+}
+
+fam <- "big3"
+plot_by_model(ev_df %>% filter(family==fam),'m1')
+plot_by_model(ev_df %>% filter(family==fam),'m1b')
+plot_by_model(ev_df %>% filter(family==fam),'m2')
+plot_by_model(ev_df %>% filter(family==fam),'m3a')
+plot_by_model(ev_df %>% filter(family==fam),'m3b')
+plot_by_model(ev_df %>% filter(family==fam),'m4')
+```
+
+``` {r plot-by-family}
+plot_by_family_m1m2 <- function(ev_df, feature_name) {
+  ev_df$feature_n <- sapply(ev_df$feature,name_of_feature)
+  
+  var_colors <- c('#eeeeee','#43A680','#0F7173')
+    # m1 = c('#eeeeee','#43A680'),
+    # m1b = c('#eeeeee','#0F7173'),
+    # m2 = c('#eeeeee','#43A680','#0F7173'),
+    # m3a = c('#eeeeee','#80B3FF','#43A680','#0F7173'),
+    # m3b = c('#eeeeee','#74F6A7','#43A680','#0F7173'),
+    # m4 = c('#eeeeee','#80B3FF','#74F6A7','#43A680','#0F7173')
+  var_labels <- c('residual','language','type')
+    # m1 = c('residual','language'),
+    # m1b = c('residual','type'),
+    # m2 = c('residual','language','type'),
+    # m3a = c('residual','proximity','language','type'),
+    # m3b = c('residual','phylogeny','language','type'),
+    # m4 = c('residual','proximity','phylogeny','language','type')           
+  
+  # ordering and plotting
+  ev_df %>% 
+    filter(feature==feature_name) %>%
+    # mutate(value = case_when(
+    #   variable=="residual" ~ value-0.5,
+    #   .default=value
+    # )) %>%
+    filter(model %in% c('m1','m2','m1b')) %>%
+    mutate(model_lab = case_when(
+      model=='m1' ~ 'culture only',
+      model=='m1b' ~ 'type only',
+      model=='m2' ~ 'type and culture',
+      .default=model
+    )) %>%
+    mutate(var_ord = case_when(
+      variable=='type'~1,
+      variable=='phylogeny'~3,
+      variable=='language'~2,
+      variable=='proximity'~4,
+      variable=='residual'~5,
+      )) %>%
+    mutate(fam_ord = case_when(
+      family=='global'~1,
+      family=='big3'~2,
+      family=='ie'~3,
+      family=='an'~4,
+      family=='ac'~5,
+      )) %>%
+    mutate(family_lab = case_when(
+      family=='global'~'Global',
+      family=='big3'~'Big 3',
+      family=='ie'~'Indo-European',
+      family=='an'~'Austronesian',
+      family=='ac'~'Antantic-Congo',
+    )) %>%
+    mutate(m_ord = case_when(
+      model=='m1'~1,
+      model=='m2'~2,
+      model=='m1b'~3,
+      )) %>% 
+    # plotting
+    ggplot(aes(y=reorder(model_lab,-m_ord),x=value,fill=reorder(variable,-var_ord))) +
+    geom_bar(stat="identity") +
+    scale_fill_discrete(type=var_colors,
+                        labels=var_labels,
+                        guide = guide_legend(reverse = TRUE)) +
+    geom_vline(xintercept=1) + geom_vline(xintercept=0) + 
+    geom_vline(xintercept=.5,  color="#bbbbbb", linewidth=.25) + 
+    geom_vline(xintercept=.25, color="#bbbbbb", linewidth=.25, linetype = "dashed") + 
+    geom_vline(xintercept=.75, color="#bbbbbb", linewidth=.25, linetype = "dashed") +
+    facet_grid(rows=vars(reorder(family,fam_ord)), scales="free", space="free") +
+    xlim(0,1) +
+    labs(title=feature_name, fill="variable", x="", y="") + 
+    theme_minimal() +
+    theme(
+      axis.ticks = element_blank(),
+      panel.grid = element_blank(),
+      axis.text.y = element_text(hjust=1,size=8),
+      plot.margin = unit(c(.1,.1,.1,.1),"cm")
+      )
+}
+
+big_fam_plotm1m2 <- 
+  plot_by_family_m1m2(ev_df, af_names[1]) + plot_by_family_m1m2(ev_df, af_names[2]) +
+  plot_by_family_m1m2(ev_df, af_names[3]) + plot_by_family_m1m2(ev_df, af_names[4]) +
+  plot_by_family_m1m2(ev_df, af_names[5]) + plot_by_family_m1m2(ev_df, af_names[6]) +
+  plot_by_family_m1m2(ev_df, af_names[7]) + plot_by_family_m1m2(ev_df, af_names[8]) +
+  plot_by_family_m1m2(ev_df, af_names[9]) + plot_by_family_m1m2(ev_df, af_names[10]) +
+  plot_by_family_m1m2(ev_df, af_names[11]) + plot_by_family_m1m2(ev_df, af_names[12]) +
+  plot_by_family_m1m2(ev_df, af_names[13]) + plot_by_family_m1m2(ev_df, af_names[14]) +
+  plot_by_family_m1m2(ev_df, af_names[15]) + plot_by_family_m1m2(ev_df, af_names[16]) +
+  plot_by_family_m1m2(ev_df, af_names[17]) + plot_by_family_m1m2(ev_df, af_names[18]) +
+  plot_by_family_m1m2(ev_df, af_names[19]) + plot_by_family_m1m2(ev_df, af_names[20]) +
+  plot_by_family_m1m2(ev_df, af_names[21]) + plot_by_family_m1m2(ev_df, af_names[22]) +
+  plot_by_family_m1m2(ev_df, af_names[23]) + plot_by_family_m1m2(ev_df, af_names[24]) +
+  plot_by_family_m1m2(ev_df, af_names[25]) + plot_by_family_m1m2(ev_df, af_names[26]) +
+  plot_by_family_m1m2(ev_df, af_names[27]) + plot_by_family_m1m2(ev_df, af_names[28]) +
+  plot_by_family_m1m2(ev_df, af_names[29]) + plot_by_family_m1m2(ev_df, af_names[30]) +
+  plot_by_family_m1m2(ev_df, af_names[31]) + plot_by_family_m1m2(ev_df, af_names[32]) +
+  plot_by_family_m1m2(ev_df, af_names[33]) + plot_by_family_m1m2(ev_df, af_names[34]) +
+  plot_by_family_m1m2(ev_df, af_names[35]) + plot_by_family_m1m2(ev_df, af_names[36]) +
+  plot_by_family_m1m2(ev_df, af_names[37]) + plot_by_family_m1m2(ev_df, af_names[38]) +
+  plot_layout(nrow=6, guide="collect")
+filename <- paste(here(),"/writing/big_fam_plotm1m2.png",sep="")
+# ggsave(filename, big_fam_plot,width=24,height=22)
+```
+
+``` {r plot-by-fam-2}
+plot_by_family_m3m4 <- function(ev_df, feature_name) {
+  ev_df$feature_n <- sapply(ev_df$feature,name_of_feature)
+  
+  var_colors <- c('#eeeeee','#80B3FF','#74F6A7','#43A680','#0F7173')
+    # m1 = c('#eeeeee','#43A680'),
+    # m1b = c('#eeeeee','#0F7173'),
+    # m2 = c('#eeeeee','#43A680','#0F7173'),
+    # m3a = c('#eeeeee','#80B3FF','#43A680','#0F7173'),
+    # m3b = c('#eeeeee','#74F6A7','#43A680','#0F7173'),
+    # m4 = c('#eeeeee','#80B3FF','#74F6A7','#43A680','#0F7173')
+  var_labels <- c('residual','proximity','phylogeny','language','type')
+    # m1 = c('residual','language'),
+    # m1b = c('residual','type'),
+    # m2 = c('residual','language','type'),
+    # m3a = c('residual','proximity','language','type'),
+    # m3b = c('residual','phylogeny','language','type'),
+    # m4 = c('residual','proximity','phylogeny','language','type')           
+  
+  # ordering and plotting
+  ev_df %>% 
+    filter(feature==feature_name) %>%
+    # mutate(value = case_when(
+    #   variable=="residual" ~ value-0.5,
+    #   .default=value
+    # )) %>%
+    filter(model %in% c('m3a','m3b','m4')) %>%
+    mutate(var_ord = case_when(
+      variable=='type'~1,
+      variable=='phylogeny'~3,
+      variable=='language'~2,
+      variable=='proximity'~4,
+      variable=='residual'~5,
+      )) %>%
+    mutate(fam_ord = case_when(
+      family=='global'~1,
+      family=='big3'~2,
+      family=='ie'~3,
+      family=='an'~4,
+      family=='ac'~5,
+      )) %>%
+    mutate(m_ord = case_when(
+      model=='m3a'~1,
+      model=='m4'~2,
+      model=='m3b'~3,
+      )) %>% 
+    mutate(model_lab = case_when(
+      model=='m3a' ~ 'proximity',
+      model=='m3b' ~ 'phylogeny',
+      model=='m4' ~ 'both',
+      .default=model
+    )) %>%
+    mutate(family_lab = case_when(
+      family=='global'~'Global',
+      family=='big3'~'Big 3',
+      family=='ie'~'Indo-European',
+      family=='an'~'Austronesian',
+      family=='ac'~'Antantic-Congo',
+    )) %>%
+    # plotting
+    ggplot(aes(y=reorder(model_lab,-m_ord),x=value,fill=reorder(variable,-var_ord))) +
+    geom_bar(stat="identity") +
+    scale_fill_discrete(type=var_colors,
+                        labels=var_labels,
+                        guide = guide_legend(reverse = TRUE)) +
+    geom_vline(xintercept=1) + geom_vline(xintercept=0) + 
+    geom_vline(xintercept=.5,  color="#bbbbbb", linewidth=.25) + 
+    geom_vline(xintercept=.25, color="#bbbbbb", linewidth=.25, linetype = "dashed") + 
+    geom_vline(xintercept=.75, color="#bbbbbb", linewidth=.25, linetype = "dashed") +
+    facet_grid(rows=vars(reorder(family,fam_ord)), scales="free", space="free") +
+    xlim(0,1) +
+    labs(title=feature_name, fill="variable", x="", y="") + 
+    theme_minimal() +
+    theme(
+      axis.ticks = element_blank(),
+      panel.grid = element_blank(),
+      axis.text.y = element_text(hjust=1,size=8),
+      plot.margin = unit(c(.1,.1,.1,.1),"cm")
+      )
+}
+
+big_fam_plotm3m4 <- 
+  plot_by_family_m3m4(ev_df, af_names[1]) + plot_by_family_m3m4(ev_df, af_names[2]) +
+  plot_by_family_m3m4(ev_df, af_names[3]) + plot_by_family_m3m4(ev_df, af_names[4]) +
+  plot_by_family_m3m4(ev_df, af_names[5]) + plot_by_family_m3m4(ev_df, af_names[6]) +
+  plot_by_family_m3m4(ev_df, af_names[7]) + plot_by_family_m3m4(ev_df, af_names[8]) +
+  plot_by_family_m3m4(ev_df, af_names[9]) + plot_by_family_m3m4(ev_df, af_names[10]) +
+  plot_by_family_m3m4(ev_df, af_names[11]) + plot_by_family_m3m4(ev_df, af_names[12]) +
+  plot_by_family_m3m4(ev_df, af_names[13]) + plot_by_family_m3m4(ev_df, af_names[14]) +
+  plot_by_family_m3m4(ev_df, af_names[15]) + plot_by_family_m3m4(ev_df, af_names[16]) +
+  plot_by_family_m3m4(ev_df, af_names[17]) + plot_by_family_m3m4(ev_df, af_names[18]) +
+  plot_by_family_m3m4(ev_df, af_names[19]) + plot_by_family_m3m4(ev_df, af_names[20]) +
+  plot_by_family_m3m4(ev_df, af_names[21]) + plot_by_family_m3m4(ev_df, af_names[22]) +
+  plot_by_family_m3m4(ev_df, af_names[23]) + plot_by_family_m3m4(ev_df, af_names[24]) +
+  plot_by_family_m3m4(ev_df, af_names[25]) + plot_by_family_m3m4(ev_df, af_names[26]) +
+  plot_by_family_m3m4(ev_df, af_names[27]) + plot_by_family_m3m4(ev_df, af_names[28]) +
+  plot_by_family_m3m4(ev_df, af_names[29]) + plot_by_family_m3m4(ev_df, af_names[30]) +
+  plot_by_family_m3m4(ev_df, af_names[31]) + plot_by_family_m3m4(ev_df, af_names[32]) +
+  plot_by_family_m3m4(ev_df, af_names[33]) + plot_by_family_m3m4(ev_df, af_names[34]) +
+  plot_by_family_m3m4(ev_df, af_names[35]) + plot_by_family_m3m4(ev_df, af_names[36]) +
+  plot_by_family_m3m4(ev_df, af_names[37]) + plot_by_family_m3m4(ev_df, af_names[38]) +
+  plot_layout(nrow=6, guide="collect")
+filename <- paste(here(),"/writing/big_fam_plotm3m4.png",sep="")
+# ggsave(filename, big_fam_plotm3m4,width=24,height=22)
+```
+
+``` {r new-analysis-type-af}
+# afeat <- "ex_tonal_mode_std"
+# afeat <- "ex_spectral_spectenropy_std","ex_spectral_brightness_mean"
+# "ex_spectral_roughness_mean"
+range(af_zscored$ex_spectral_spectenropy_std)
+
+af_zscored %>% 
+  filter(type=="Dance" | type=="Lullaby") %>%
+  group_by(language) %>%
+  mutate(dance_by_lang = mean(ex_spectral_roughness_mean[type=="Dance"])) %>%
+  mutate(lull_by_lang = mean(ex_spectral_roughness_mean[type=="Lullaby"])) %>%
+  summarize(diff = case_when(
+    is.na(dance_by_lang) ~ NA,
+    is.na(lull_by_lang) ~ NA,
+    .default=lull_by_lang - dance_by_lang
+    ) 
+  ) %>% filter(!is.na(diff)) %>% unique() %>%
+  ggplot(aes(x=reorder(language,diff),y=diff)) + geom_bar(stat="identity")
+```
+
+``` {r newesty-analysis-phylo-af}
+# afeat <- "ex_spectral_roughness_std", "ex_spectral_brightness_mean"
+an_df <- audio_data_lim %>% 
+  filter(type=="Dance" | type=="Lullaby") %>%
+  group_by(glottocode) %>%
+  mutate(dance_by_lang = mean(ex_spectral_brightness_mean[type=="Dance"])) %>%
+  mutate(lull_by_lang = mean(ex_spectral_brightness_mean[type=="Lullaby"])) %>%
+  summarize(dance_by_lang=dance_by_lang,
+            lull_by_lang=lull_by_lang,
+            diff = case_when(
+    is.na(dance_by_lang) ~ NA,
+    is.na(lull_by_lang) ~ NA,
+    .default=lull_by_lang - dance_by_lang
+    ) 
+  ) %>% unique() #filter(!is.na(diff)) %>% unique()
+
+  
+# AN tree plot
+an_plot <- ie_subtree %>%
+  ggtree(size=.12, layout='fan', open.angle=10) %<+% an_df +
+  # ggtree(size=.12, open.angle=10) %<+% an_df +
+  geom_fruit(
+    geom=geom_tile,
+    mapping = aes(y=Pos, fill=dance_by_lang),
+    offset=.0,
+    pwidth=.0
+    ) +
+  scale_fill_gradient(low='#55ffff',high='blue',na.value='white') +
+  labs(y="Austronesian") + guides(fill=FALSE)  + 
+  theme(
+    panel.background=element_blank(), 
+    plot.background = element_blank(),
+    plot.margin = unit(c(.1,.1,.1,.1),"cm")
+    )
+an_plot
+```
+
+``` {r fig4}
+# examples of fits
+figA1 <- plot_by_family_m1m2(ev_df%>%filter(family!="global"), 'ex_tonal_mode_std') +
+  labs(title="tonal mode (std dev)") + theme(legend.position="none")
+figA2 <- plot_by_family_m1m2(ev_df%>%filter(family!="global"), 'ex_spectral_brightness_mean') +
+  labs(title="brightness (mean)") + 
+  theme(legend.position="none")
+figB1 <- plot_by_family_m3m4(ev_df%>%filter(family!="global"), 'ex_rhythm_attack_time_mean') +
+  labs(title="attack time (mean)") + theme(legend.position = "none")
+figB2 <- plot_by_family_m3m4(ev_df%>%filter(family!="global"), 'ex_spectral_brightness_mean') +
+  labs(title="brightness (mean)") + 
+  theme(legend.position="none")
+
+# legend
+var_cols <- c('#0F7173','#43A680','#74F6A7','#80B3FF')
+var_labs <- c('behavior','culture','phylogeny','proximity')      
+figLeg <- ev_df %>% 
+  filter(variable!="residual") %>% 
+  ggplot(aes(fill=variable, y=value)) + geom_bar() +
+  scale_fill_manual(values=var_cols, labels=var_labs)
+fig_leg <- get_legend(figLeg)
+
+#c('#eeeeee','#80B3FF','#74F6A7','#43A680','#0F7173')
+#c('residual','proximity','phylogeny','language','type')       
+
+# type and language distribution
+var_colors <- c('#43A680','#0F7173')
+var_labels <- c('culture','type')
+figC1 <- ev_df %>% 
+  filter(family=="big3",model=="m2",variable!="residual") %>%
+  ggplot(aes(x=value, fill=variable),color="black") + 
+  geom_density(position='dodge') + theme_classic() + xlim(-.00,1) +
+  scale_fill_manual(values=var_colors, labels=var_labels) + 
+  labs(x = "ICC across all acoustic features\n(type and culture in 'big 3')", y="") +
+  theme(
+    axis.text.y=element_blank(),
+    axis.ticks.y=element_blank(),
+    legend.position = "none") +
+  xlim(0,.7)
+# figC1
+
+simp_ev_df <- ev_df %>% 
+  mutate(simp_grp = case_when(
+    variable=="type" ~ "type",
+    variable=="residual" ~ "residual",
+    variable=="language" | variable=="phylogeny" | variable=="proximity" ~ "culture",
+    .default=NA
+  )) %>% 
+  group_by(feature, model, family, simp_grp) %>%
+  mutate(simp_value = sum(value)) %>% 
+  ungroup() %>%
+  select(!c(variable,value)) %>% 
+  unique() %>%
+  rename(value = simp_value, variable = simp_grp)
+
+figC2a <- simp_ev_df %>%
+  filter(family=="big3",model=="m4",variable!="residual",variable!="proximity",variable!="phylogeny") %>% #,variable!="language",variable!="type") %>%
+  ggplot(aes(x=value, fill=variable),color="black") + 
+  geom_density(alpha=.8) + theme_classic() + xlim(-.00,1) +
+  scale_fill_manual(values=var_colors, labels=var_labels) + 
+  theme(
+    axis.text.y=element_blank(),
+    axis.ticks.y=element_blank(),
+    panel.ontop = element_blank(),
+    legend.position = "none") +
+  labs(x="behavior and culture in 'big3'",y="",
+       title="ICC fits from all\nacoustic features") +
+  xlim(0,.5)
+
+var_colors <- c('#74F6A7','#80B3FF')#,'#43A680','#0F7173')
+var_labels <- c('phylogeny','proximity')#,'language','type')
+figC2b <- ev_df %>% 
+  filter(family=="big3",model=="m4",variable!="residual",variable!="language",variable!="type") %>%
+  ggplot(aes(x=value, fill=variable),color="black") + 
+  geom_density(alpha=.8) + theme_classic() + xlim(-.00,1) +
+  scale_fill_manual(values=var_colors, labels=var_labels) + 
+  theme(
+    axis.text.y=element_blank(),
+    axis.ticks.y=element_blank(),
+    panel.ontop = element_blank(),
+    legend.position = "none") +
+  labs(x="geography and phylogeny\nin 'big3'",y="") +
+  xlim(0,.3)
+
+
+# layout <- "
+# AB##
+# ABL#
+# AB##
+# CDEE
+# CDFF
+# "
+# fin_fig <- 
+#   figA1 + figA2 +
+#   figB1 + figB2 +
+#   figC2a + figC2b +
+#   fig_leg +
+#   plot_layout(ncol=3, design=layout, heights = c(.5,.3,.5,.5,.5), widths=c(1,1,.5,.3)) +
+#   plot_annotation(tag_levels = list(c('A','B','C','D','E','F')))
+
+layout <- "
+AL#
+BCC
+BDD
+"
+fin_fig <- 
+  figA1 + figB2 +
+  figC2a + figC2b +
+  fig_leg +
+  plot_layout(ncol=3, design=layout, heights = c(1,.4,.4), widths=c(1,.3,.3)) +
+  plot_annotation(tag_levels = list(c('A','B','C','D','')))
+# fin_fig
+
+filename <- paste(here(),'/viz/fig4.png',sep="")
+ggsave(filename, fin_fig, height=7,width=7)
+```
+
+
+``` {r determine_which_af}
+# audio_data %>% group_by(region) %>%
+#   mutate(has_dance = case_when(
+#     "Dance" %in% type ~ TRUE,
+#     .default = FALSE
+#   )) %>%
+#   mutate(has_lull = case_when(
+#     "Lullaby" %in% type ~ TRUE,
+#     .default = FALSE
+#   )) %>%
+#   summarize(has_both = case_when(
+#     has_dance & has_lull ~ TRUE,
+#     .default = FALSE
+#   )) %>% filter(has_both==TRUE) %>% unique()
+
+# ex_simple_brightness_mean
+# ex_simple_centroid_mean
+
+diff <- audio_data %>%
+  group_by(glottocode) %>%
+  mutate(lang_dance = NA) %>% # get mean dance values
+  mutate(lang_dance = case_when(
+    "Dance" %in% type ~ mean(ex_simple_centroid_mean[type=="Dance"]),
+    .default=unique(lang_dance)
+  )) %>%
+  mutate(lang_lull = NA) %>% # get mean lullaby values
+  mutate(lang_lull = case_when(
+    "Lullaby" %in% type ~ mean(ex_simple_centroid_mean[type=="Lullaby"]),
+    .default=unique(lang_lull)
+  )) %>% ungroup() %>%
+  group_by(glottocode) %>%
+  mutate(lang_diff = NA) %>%
+  mutate(lang_diff = case_when(
+    !is.na(lang_dance) & !is.na(lang_lull) ~ lang_lull - lang_dance,
+    .default=unique(lang_diff)
+  )) %>% ungroup() %>%
+  select(song, name, glottocode, type, region, lang_diff, lang_dance, lang_lull)
+
+subfig <- diff %>% select(glottocode, name, lang_diff, lang_dance, lang_lull) %>% unique() %>%
+  filter(!is.na(lang_diff)) %>%
+  mutate(name = case_when(
+    name=="Antigua and Barbuda Creole English" ~ "Antigua and Barbuda Creole",
+    .default = name
+  )) %>%
+  mutate(sign = sign(lang_diff)) %>%
+  ggplot(aes(label=name, y=lang_diff, x=reorder(glottocode,lang_diff))) + 
+  geom_text(aes(y=-.05*sign, hjust=case_when(sign==-1~0,sign==1~1), angle=0)) +
+  geom_bar(stat='identity') +
+  theme_classic() + 
+  theme(
+    axis.line.y.left = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank()
+    ) + 
+  labs(x="", y="differences in (ex_simple_centroid_mean)\nLullabies minus Dance songs") + 
+  ylim(-2,2) + coord_flip()
+
+filename <- paste(here(),"/writing/centroid_typediff.png",sep="")
+ggsave(filename, subfig, width=5,height=6)
+```
+
+``` {r determine_which_af2}
+# ex_simple_brightness_mean
+# ex_simple_centroid_mean
+
+diff2 <- audio_data %>% filter(family_id!="") %>%
+  group_by(family_id) %>%
+  mutate(lang_dance = NA) %>% # get mean dance values
+  mutate(lang_dance = case_when(
+    "Dance" %in% type ~ mean(ex_simple_centroid_mean[type=="Dance"]),
+    .default=unique(lang_dance)
+  )) %>%
+  mutate(lang_lull = NA) %>% # get mean lullaby values
+  mutate(lang_lull = case_when(
+    "Lullaby" %in% type ~ mean(ex_simple_centroid_mean[type=="Lullaby"]),
+    .default=unique(lang_lull)
+  )) %>% ungroup() %>%
+  group_by(family_id) %>%
+  mutate(lang_diff = NA) %>%
+  mutate(lang_diff = case_when(
+    !is.na(lang_dance) & !is.na(lang_lull) ~ lang_lull - lang_dance,
+    .default=unique(lang_diff)
+  )) %>% ungroup() %>%
+  select(song, family_id, family_name, type, region, lang_diff, lang_dance, lang_lull)
+
+subfig <- diff2 %>% 
+  select(family_id, family_name, lang_diff, lang_dance, lang_lull) %>% 
+  unique() %>%
+  filter(!is.na(lang_diff)) %>%
+  mutate(sign = sign(lang_diff)) %>%
+  ggplot(aes(x=reorder(family_id,lang_diff), y=lang_diff, label=family_name)) + 
+  geom_bar(stat='identity') +
+  geom_text(aes(y=-.05*sign, hjust=case_when(sign==-1~0,sign==1~1), angle=0)) +
+  theme_classic() + 
+  theme(
+    axis.line.y.left = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank()
+    ) + 
+  labs(x="", y="differences in (ex_simple_centroid_mean)\nLullabies minus Dance songs") +
+  ylim(-3,4) + 
+  coord_flip()
+subfig
+
+filename <- paste(here(),"/writing/centroid_typedifffam.png",sep="")
+ggsave(filename, subfig, width=5,height=6)
+```
+
+``` {r funxc}
+# ex_simple_brightness_mean
+# ex_simple_centroid_mean
+
+make_diff_af <- function(df,af="ex_spectral_brightness_mean",grp="family_id") {
+  # calculate difference of acoustic feature (dance - lullaby) by group
+  diff <- df %>%
+    mutate(label = case_when(
+      grp=="family_id" ~ family_name,
+      grp=="glottocode" | grp=="language" ~ name,
+      grp=="region" ~ region,
+      .default=NA
+    )) %>%
+    rename("grouping"=grp,"feature"=af) %>%
+    group_by(grouping) %>%
+    # get mean dance values
+    mutate(dance_mean = NA,dance_n = NA) %>% 
+    mutate(dance_mean = case_when(
+      "Dance" %in% type ~ mean(feature[type=="Dance"]),
+      .default=unique(dance_mean)
+    )) %>%
+    # get mean lullaby values
+    mutate(lull_mean = NA, lull_n = NA) %>% 
+    mutate(lull_mean = case_when(
+      "Lullaby" %in% type ~ mean(feature[type=="Lullaby"]),
+      .default=unique(lull_mean)
+    )) %>% 
+    # get difference of means
+    mutate(diff = NA) %>%
+    mutate(diff = case_when(
+      !is.na(dance_mean) & !is.na(lull_mean) ~ dance_mean - lull_mean,
+      .default=unique(diff)
+    )) %>%
+    summarize(grouping,label,diff,dance_mean,lull_mean) %>% unique() %>% filter(!is.na(diff))
+  
+  return(diff)
+}
+
+plot_diff_af <- function(df,af="ex_spectral_brightness_mean",grp="family_id") {
+  # return bar plot 
+  plot <- df %>%
+    mutate(sign = sign(diff)) %>%
+    ggplot(aes(x=reorder(grouping,diff), y=diff, label=label)) + # fill=diff
+    geom_bar(stat='identity') +
+    geom_text(aes(y=-.02*sign, hjust=case_when(sign==-1~0,sign==1~1), vjust=.5, angle=0), size=3) +
+    coord_flip() +
+    theme_classic() + 
+    theme(
+      axis.line.y.left = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.text.y = element_blank()
+      ) + 
+    scale_fill_gradient2(
+      low="#8500ff",mid="#bbbbbb",high="#ff0000",
+      na.value = "#bbbbbb",
+      limits=c(-1.2,2.1)
+      ) +
+    lims(y=c(-1.2,2.1)) +
+    labs(
+      x = case_when(
+        grp=="family_id" ~ "Language Family",
+        grp=="glottocode" | grp=="language" ~ "Language",
+        grp=="region" ~ "Region"
+      ),
+      y = paste(af,"(Dance - Lullaby)"),
+      fill = "Difference"
+    ) +
+    theme(legend.position="none")
+  return(plot)
+}
+
+# 
+# for (af in af_names) {
+# plot_diff_af(audio_data,af, "glottocode") +
+#   plot_diff_af(audio_data,af, "family_id") +
+#   plot_diff_af(audio_data,af_names[1], "region") + 
+#   plot_layout(guides = "collect") 
+# }
+```
+
+``` {r determine_which_af3}
+diff3 <- audio_data %>%
+  group_by(region) %>%
+  mutate(lang_dance = NA) %>% # get mean dance values
+  mutate(lang_dance = case_when(
+    "Dance" %in% type ~ mean(ex_simple_centroid_mean[type=="Dance"]),
+    .default=unique(lang_dance)
+  )) %>%
+  mutate(lang_lull = NA) %>% # get mean lullaby values
+  mutate(lang_lull = case_when(
+    "Lullaby" %in% type ~ mean(ex_simple_centroid_mean[type=="Lullaby"]),
+    .default=unique(lang_lull)
+  )) %>% ungroup() %>%
+  group_by(region) %>%
+  mutate(lang_diff = NA) %>%
+  mutate(lang_diff = case_when(
+    !is.na(lang_dance) & !is.na(lang_lull) ~ lang_lull - lang_dance,
+    .default=unique(lang_diff)
+  )) %>% ungroup() %>%
+  select(song, family_id, family_name, type, region, lang_diff, lang_dance, lang_lull)
+
+subfig <- diff3 %>% 
+  select(region, lang_diff, lang_dance, lang_lull) %>% 
+  unique() %>%
+  filter(!is.na(lang_diff)) %>%
+  mutate(sign = sign(lang_diff)) %>%
+  ggplot(aes(x=reorder(region,lang_diff), y=lang_diff, label=region)) + 
+  geom_bar(stat='identity') +
+  geom_text(aes(y=-.05*sign, hjust=case_when(sign==-1~0,sign==1~1), angle=0)) +
+  theme_classic() + 
+  theme(
+    axis.line.y.left = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank()
+    ) + 
+  labs(x="", y="differences in (ex_simple_centroid_mean)\nLullabies minus Dance songs") +
+  # ylim(-3,4) + 
+  coord_flip()
+subfig
+
+filename <- paste(here(),"/writing/centroid_typediffreg.png",sep="")
+ggsave(filename, subfig, width=5,height=6)
+```
+
+``` {r tree-plotting}
+# for TREE plotting
+# propagates "has_song" label up the tree
+# through parents
+# returns tree
+prop_af_tree <- function(tree, df, af) {
+  x <- as_tibble(tree) %>% 
+    as.data.frame() %>% # turn into df
+    merge(
+      df %>% 
+        rename("label"="glottocode", val=af) %>%
+        group_by(label) %>%
+        summarize(label=unique(label), mean_val=mean(val)) %>%
+        select(label, mean_val),
+      all.x=TRUE, by="label") # add "has_song" label
+  
+  for (i in 1:50) {
+    # get mean value of af by parent, 
+    # return parent as "node" alongside value
+    nodes_to_update <- x %>% 
+      group_by(parent) %>%
+      summarize(mean_of_parent = mean(mean_val, na.rm=TRUE)) %>%
+      mutate(mean_of_parent = case_when(is.nan(mean_of_parent) ~ NA, .default=mean_of_parent)) %>%
+      rename(node=parent, mean_val=mean_of_parent)
+    
+    # update working dataframe to represent new mean af value
+    x <- x %>% merge(nodes_to_update, by="node", all=TRUE) %>%
+      mutate(mean_val = case_when(
+        !is.na(mean_val.y) ~ mean_val.y, # prioritize new value
+        .default = mean_val.x
+      )) %>% select(!c(mean_val.x,mean_val.y))
+  }
+  
+  x1 <- x %>% 
+    select(node,mean_val) %>% 
+    as_tibble()
+  tree <- treedata(phylo=tree, data=x1)
+  return(x1)
+}
+
+
+plot_af_tree <- function(tree, df, af, family="ie",lims=c(-1.71,5)) {
+  # add size to tree branches
+  tree <- tree 
+  
+  na_val <- case_when(
+    family=="an" ~ "#555555",
+    family=="ac" ~ "#555555",
+    family=="ie" ~ "#000000",,
+    .default="#000000"
+  )
+  
+  df <- df %>%
+    mutate(bigness = case_when(!is.na(mean_val) ~ .9, .default=.2),
+           alph = case_when(!is.na(mean_val) ~ 1, .default=.3))
+  
+  plot <- tree %>%
+    ggtree(layout='fan', open.angle=10, mapping=aes(size=bigness, alpha=alph)) %<+% 
+    df  +
+    aes(color=mean_val) +
+    scale_alpha_identity(guide = "none") + 
+    scale_size_identity() +
+    # scale_color_gradient2(
+    #     low="#0000ff",mid="#e6e200",high="#ff0000",
+    #     na.value = na_val,
+    #     limits=c(-1.8,3.6)
+    #     ) +
+    scale_color_viridis(na.value = na_val,limits=lims)+#option="magma") +
+    labs(color="Mean Value")
+    # theme(legend.position = "none")
+  return(plot)
+}
+```
+
+``` {r fig5}
+af <- "ex_spectral_brightness_mean"
+# af <- "ex_spectral_roughness_mean"
+
+af <- "ex_tonal_mode_std"
+
+# tree plots
+ie_df_dance <- prop_af_tree(ie_subtree, af_zscored %>% filter(type=="Dance"), af)
+plot_ie_dance <- plot_af_tree(ie_subtree, ie_df_dance, af) +
+  labs(y="Indo-European (Dance)", color="Mean Brightness")
+
+ie_df_lull <- prop_af_tree(ie_subtree, af_zscored %>% filter(type=="Lullaby"), af)
+plot_ie_lull <- plot_af_tree(ie_subtree, ie_df_lull, af) +
+  labs(y="Indo-European (Lullabies)", color="Mean Brightness")
+
+an_df_dance <- prop_af_tree(ie_subtree, af_zscored %>% filter(type=="Dance"), af)
+plot_an_dance <- plot_af_tree(ie_subtree, an_df_dance, af, family="ie") +
+  labs(y="Indo-European (Dance)", color="Tonal Mode (std)")
+
+an_df_lull <- prop_af_tree(ie_subtree, af_zscored %>% filter(type=="Lullaby"), af)
+plot_an_lull <- plot_af_tree(ie_subtree, an_df_lull, af, family="ie") +
+  labs(y="Indo-European (Lullabies)", color="Tonal Mode (std)")
+
+an_df_heal <- prop_af_tree(ie_subtree, af_zscored %>% filter(type=="Play"), af)
+plot_an_heal <- plot_af_tree(ie_subtree, an_df_heal, af, family="ie") +
+  labs(y="Indo-European (Play)", color="Tonal Mode (std)")
+
+
+layout <- "
+ABC
+"
+# fig5 <- 
+#   plot_ie + plot_an +
+#   plot_glot + plot_family + #plot_region +
+#   plot_layout(guides = "collect", nrow=2, design=layout) 
+fig5 <- 
+  # plot_ie_dance + plot_ie_lull +
+  plot_an_dance + plot_an_lull + 
+  plot_an_heal +
+  plot_layout(guides = "collect", nrow=2, design=layout) +
+  plot_annotation(tag_levels = list(c('A','B','C','D')))
+fig5
+# ggsave(filename = paste(here(),'/viz/fig5v2.png',sep=""), fig5, width=10,height=4)
+```
+
+``` {r fig5_take2}
+af <- "ex_spectral_brightness_mean"
+
+# tree plots
+ie_df <- prop_af_tree(ie_subtree, af_zscored %>% filter(type=="Lullaby"), af)
+ie_plot <- plot_af_tree(ie_subtree, ie_df, af, family="ie") +
+  labs(y="Indo-European (Lullaby)")
+
+an_df <- prop_af_tree(an_subtree, af_zscored %>% filter(type=="Lullaby"), af)
+an_plot <- plot_af_tree(an_subtree, an_df, af, family="an") +
+  labs(y="Austronesian (Lullaby)")
+
+ac_df <- prop_af_tree(ac_subtree, af_zscored %>% filter(type=="Lullaby"), af)
+ac_plot <- plot_af_tree(ac_subtree, ac_df, af, family="ac") +
+  labs(y="Atlantic-Congo (Lullaby)")
+
+layout <- "
+ABC
+"
+# fig5 <- 
+#   plot_ie + plot_an +
+#   plot_glot + plot_family + #plot_region +
+#   plot_layout(guides = "collect", nrow=2, design=layout) 
+fig5b <- 
+  ie_plot + an_plot + ac_plot +
+  plot_layout(guides = "collect", nrow=1, design=layout) +
+  plot_annotation(tag_levels = list(c('A','B','C')))
+fig5b
+```
+
+``` {r plot-diff-af}
+af <- "ex_spectral_brightness_mean"
+# af <- "ex_spectral_roughness_mean"
+
+# af <- "ex_tonal_mode_std"
+# language and region plots
+# diff_glot <- make_diff_af(audio_data, af, "glottocode")
+# plot_glot <- plot_diff_af(diff_glot, af, "glottocode") + labs(y="")
+# diff_family <- make_diff_af(audio_data, af, "family_id")
+# plot_family <- plot_diff_af(diff_family, af, "family_id")# + labs(y="")
+# diff_region <- make_diff_af(audio_data, af, "region")
+# plot_region <- plot_diff_af(diff_region, af, "region")
+
+featfamdf <- audio_data %>% 
+  rename("feature"=af) %>% 
+  group_by(family_id, type) %>%
+  mutate(mean_val = mean(feature)) %>%
+  mutate(sd_val = sd(feature)) %>%
+  mutate(n_val = length(feature)) %>%
+  ungroup() %>% 
+  select(family_id,type,mean_val,sd_val,family_name,n_val) %>% unique()
+
+type_sel <- "Lullaby"
+# plot <- featfamdf %>%
+#   filter(type==type_sel) %>%
+#   filter(n_val>1) %>%
+#   mutate(sign = sign(mean_val)) %>%
+#   ggplot(aes(x=reorder(family_id,mean_val), y=mean_val, label=family_name)) + # fill=diff
+#   geom_bar(stat='identity') +
+#   geom_errorbar(aes(ymin=mean_val-sd_val, ymax=mean_val+sd_val), width=.7, size=.2) +
+#   geom_text(aes(y=-.02*sign, hjust=case_when(sign==-1~0,sign==1~1), vjust=.5, angle=0), size=3) +
+#   coord_flip() +
+#   theme_classic() +
+#   theme(
+#     axis.line.y.left = element_blank(),
+#     axis.ticks.y = element_blank(),
+#     axis.text.y = element_blank()
+#     ) +
+#   labs(x="Language Family", y=paste(af,"for",type_sel))
+plot <- audio_data %>%
+  rename("feature"=af) %>%
+  # filter(type==type_sel) %>%
+  filter(type=="Dance"|type=="Lullaby") %>%
+  group_by(family_id) %>%
+  mutate(family_mean = mean(feature)) %>%
+  mutate(n_val = length(feature)) %>%
+  mutate(sign = sign(family_mean)) %>%
+  ungroup() %>%
+  filter(n_val>2) %>%
+  ggplot(aes(x=reorder(family_name,family_mean), y=feature, label=family_name, color=type)) +
+  geom_point(position=position_jitter(width=.1)) +
+  geom_vline(aes(xintercept=family_name), size=.15, color="#aaaaaa") + 
+  # geom_bar(stat='identity') +
+  # geom_errorbar(aes(ymin=mean_val-sd_val, ymax=mean_val+sd_val), width=.7, size=.2) +
+  # geom_text(aes(y=-.02*sign, hjust=case_when(sign==-1~0,sign==1~1), vjust=.5, angle=0), size=3) +
+  coord_flip() +
+  theme_classic() +
+  scale_color_manual(values=c("#ff0000","#0000ff")) + 
+  theme(
+    axis.line.y.left = element_blank(),
+    axis.ticks.y = element_blank(),
+    # axis.text.y = element_blank()
+    ) +
+  labs(x="Language Family", y=af)# y=paste(af,"for",type_sel))
+plot  
+
+layout <- "
+AB
+AC
+AD
+"
+plot + 
+  plot_an_dance + plot_an_lull + 
+  plot_an_heal +
+  plot_layout(design=layout, guides="collect",widths=c(1,.6))
+```
+  
+``` {r make-fig5-options}
+plot_fig5 <- function(af, df, ie_tree, an_tree, ac_tree, song_min) {
+  # manually handle outliers
+  df <- df %>%
+    rename("feature"=af)
+  
+  # get limit
+  minf <- min(df %>% filter(type=="Dance"|type=="Lullaby") %>% pull(feature))
+  maxf <- max(df %>% filter(type=="Dance"|type=="Lullaby") %>% pull(feature))
+  lims <- c(minf,maxf)
+  
+  # create scatter plots
+  splot1 <- df %>%
+    filter(type=="Dance"|type=="Lullaby") %>%
+    filter(family_name %in% c("Indo-European","Austronesian","Atlantic-Congo")) %>%
+    group_by(family_id) %>%
+    mutate(family_mean = mean(feature)) %>%
+    mutate(n_val = length(feature)) %>%
+    ungroup() %>%
+    ggplot(aes(x=feature, label=family_name, color=type, fill=type)) +
+    geom_density(alpha=.65) +
+    geom_point(aes(y=-.3),position=position_jitter(height=.1)) +
+    geom_hline(yintercept = 0,color="#bbbbbb") +
+    geom_vline(xintercept = 0,color="#bbbbbb",linetype="dashed") +
+    facet_grid(rows=vars(reorder(family_name,-n_val)), switch="y") +
+    theme_classic() +
+    scale_color_manual(values=c("#6f9acc","#44bb74")) + 
+    scale_fill_manual(values=c("#6f9acc","#44bb74")) +
+    theme(
+      strip.text.y.left = element_text(angle = 0),
+      strip.background = element_rect(fill="#ffffff", colour="#ffffff"),
+      axis.line.y.left = element_blank(),
+      axis.line.x.bottom = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.text.x = element_blank(),
+      axis.ticks.y = element_blank(),
+      panel.grid = element_blank()
+      ) +
+    labs(y="Deep Sample", x="", color="Behavior", fill="Behavior") +
+    lims(x=lims,y=c(-1,1.4))
+  splot1
+  # leg <- get_legend(splot1)
+  # splot1 <- splot1 + theme(legend.position = "none")
+  
+  splot2den <- df %>%
+    filter(type=="Dance"|type=="Lullaby") %>%
+    filter(!family_name%in%c("Indo-European","Austronesian","Atlantic-Congo")) %>%
+    ggplot(aes(x=feature, label=family_name, color=type, fill=type)) +
+    geom_density(alpha=.65) + 
+    lims(x=lims) +
+    scale_color_manual(values=c("#6f9acc","#44bb74")) +
+    scale_fill_manual(values=c("#6f9acc","#44bb74")) +
+    theme_void() + theme(legend.position = "none")
+  
+  splot2 <- df %>%
+    filter(type=="Dance"|type=="Lullaby") %>%
+    filter(!family_name%in%c("Indo-European","Austronesian","Atlantic-Congo")) %>%
+    # group_by(family_id,type) %>%
+    # mutate(enuf=length(feature)>=song_min) %>%
+    # ungroup() %>%
+    group_by(family_id) %>%
+    mutate(family_mean = mean(feature)) %>%
+    # mutate(enuff = all(enuf)) %>%
+    ungroup() %>%
+    group_by(glottocode) %>%
+    mutate(lang_mean=mean(feature)) %>%
+    ungroup() %>%
+    # filter(enuff) %>%
+    ggplot(aes(x=feature, label=family_name, color=type, fill=type)) +
+    #, y=reorder(family_name,family_mean),
+    # geom_density(alpha=.55) +
+    geom_hline(yintercept = 0,color="#cccccc",,linewidth=.2) +
+    geom_vline(xintercept=0,color="#bbbbbb",linetype="dashed") +
+    geom_point(aes(y=0)) + #, position=position_jitter(height=.2)) + #position=position_jitter(height=.01)
+    facet_grid(rows=vars(reorder(family_name,-family_mean)),switch="y", margins=FALSE) +
+    theme_classic() +
+    scale_color_manual(values=c("#6f9acc","#44bb74")) +
+    scale_fill_manual(values=c("#6f9acc","#44bb74")) +
+    # scale_y_discrete(position="right") + 
+    theme(
+      strip.text.y.left = element_text(angle = 0,size=6,hjust=1,margin=margin(t = 0, r = 0, b = 0, l = 0, unit = "pt")),
+      strip.background = element_rect(fill="#ffffff", colour="#ffffff"),
+      axis.line.y = element_blank(),
+      # axis.ticks.x = element_blank(),
+      # axis.text.y.right = element_text(hjust=0),
+      axis.text.y.left = element_blank(),
+      axis.ticks.y = element_blank(),
+      panel.grid = element_blank(),
+      panel.spacing = unit(0,"pt"),
+      legend.position="none"
+      ) +
+    labs(y="Wide Sample", x=af) +
+    lims(x=lims)
+  splot2
+  
+  scatter_plot <- splot1 + splot2den + splot2 + 
+    plot_layout(ncol=1, heights=c(2.5,.3,4),guide="collect")
+
+  # filename <- paste(here(),"/viz/fig5_final_options/Ascatter_",af,".png",sep="")
+  # ggsave(filename=filename,scatter_plot,width=6,height=7)
+  
+  # create tree plots
+  # ie
+  ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Dance") %>% rename(af="feature"), af)
+  plot_ie_dance <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
+    labs(y="Indo-European (Dance)", color="Spectral Entropy Mean")
+  
+  ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Lullaby") %>% rename(af="feature"), af)
+  plot_ie_lull <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
+    labs(y="Indo-European (Lullaby)", color="Spectral Entropy Mean")
+  
+  # ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Play") %>% rename(af="feature"), af)
+  # plot_ie_play <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
+  #   labs(y="Indo-European (Play)", color=af)
+  # 
+  # ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Procession") %>% rename(af="feature"), af)
+  # plot_ie_proc <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
+  #   labs(y="Indo-European (Procession)", color=af)
+  # 
+  # ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Praise") %>% rename(af="feature"), af)
+  # plot_ie_praise <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
+  #   labs(y="Indo-European (Praise)", color=af)
+  # 
+  # ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Healing") %>% rename(af="feature"), af)
+  # plot_ie_heal <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
+  #   labs(y="Indo-European (Healing)", color=af)
+  # 
+  # ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Love") %>% rename(af="feature"), af)
+  # plot_ie_love <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
+  #   labs(y="Indo-European (Love)", color=af)
+  # 
+  # ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Work") %>% rename(af="feature"), af)
+  # plot_ie_work <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
+  #   labs(y="Indo-European (Work)", color=af)
+  # 
+  # ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Mourning") %>% rename(af="feature"), af)
+  # plot_ie_mourn <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
+  #   labs(y="Indo-European (Mourning)", color=af)
+  # 
+  # ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Story") %>% rename(af="feature"), af)
+  # plot_ie_story <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
+  #   labs(y="Indo-European (Story)", color=af)
+  
+  # an
+  an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Dance") %>% rename(af="feature"), af)
+  plot_an_dance <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
+    labs(y="Austronesian (Dance)", color="Spectral Entropy Mean")
+  
+  an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Lullaby") %>% rename(af="feature"), af)
+  plot_an_lull <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
+    labs(y="Austronesian (Lullaby)", color="Spectral Entropy Mean")
+
+  # an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Play") %>% rename(af="feature"), af)
+  # plot_an_play <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
+  #   labs(y="Austronesian (Play)", color=af)
+  # 
+  # an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Procession") %>% rename(af="feature"), af)
+  # plot_an_proc <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
+  #   labs(y="Austronesian (Procession)", color=af)
+  # 
+  # an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Praise") %>% rename(af="feature"), af)
+  # plot_an_praise <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
+  #   labs(y="Austronesian (Praise)", color=af)
+  # 
+  # an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Healing") %>% rename(af="feature"), af)
+  # plot_an_heal <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
+  #   labs(y="Austronesian (Healing)", color=af)
+  # 
+  # an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Love") %>% rename(af="feature"), af)
+  # plot_an_love <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
+  #   labs(y="Austronesian (Love)", color=af)
+  # 
+  # an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Work") %>% rename(af="feature"), af)
+  # plot_an_work <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
+  #   labs(y="Austronesian (Work)", color=af)
+  # 
+  # an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Mourning") %>% rename(af="feature"), af)
+  # plot_an_mourn <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
+  #   labs(y="Austronesian (Mourning)", color=af)
+  # 
+  # an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Story") %>% rename(af="feature"), af)
+  # plot_an_story <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
+  #   labs(y="Austronesian (Story)", color=af)
+
+  # ac
+  ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Dance") %>% rename(af="feature"), af)
+  plot_ac_dance <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
+    labs(y="Atlantic-Congo (Dance)", color="Spectral Entropy Mean")
+  
+  ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Lullaby") %>% rename(af="feature"), af)
+  plot_ac_lull <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
+    labs(y="Atlantic-Congo (Lullaby)", color="Spectral Entropy Mean")
+  
+  # ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Play") %>% rename(af="feature"), af)
+  # plot_ac_play <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
+  #   labs(y="Atlantic-Congo (Play)", color=af)
+  # 
+  # ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Procession") %>% rename(af="feature"), af)
+  # plot_ac_proc <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
+  #   labs(y="Atlantic-Congo (Procession)", color=af)
+  # 
+  # ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Praise") %>% rename(af="feature"), af)
+  # plot_ac_praise <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
+  #   labs(y="Atlantic-Congo (Praise)", color=af)
+  # 
+  # ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Healing") %>% rename(af="feature"), af)
+  # plot_ac_heal <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
+  #   labs(y="Atlantic-Congo (Healing)", color=af)
+  # 
+  # ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Love") %>% rename(af="feature"), af)
+  # plot_ac_love <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
+  #   labs(y="Atlantic-Congo (Love)", color=af)
+  # 
+  # ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Work") %>% rename(af="feature"), af)
+  # plot_ac_work <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
+  #   labs(y="Atlantic-Congo (Work)", color=af)
+  # 
+  # ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Mourning") %>% rename(af="feature"), af)
+  # plot_ac_mourn <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
+  #   labs(y="Atlantic-Congo (Mourning)", color=af)
+  # 
+  # ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Story") %>% rename(af="feature"), af)
+  # plot_ac_story <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
+  #   labs(y="Atlantic-Congo (Story)", color=af)
+  
+  # create full plot
+  tree_plot <- 
+    # ie
+    plot_ie_dance + plot_ie_lull + plot_ie_play + 
+    plot_ie_proc + plot_ie_praise + plot_ie_heal + 
+    plot_ie_love + plot_ie_work + plot_ie_mourn + 
+    plot_ie_story + 
+    # an
+    plot_an_dance + plot_an_lull + plot_an_play + 
+    plot_an_proc + plot_an_praise + plot_an_heal + 
+    plot_an_love + plot_an_work + plot_an_mourn + 
+    plot_an_story + 
+    # ac
+    plot_ac_dance + plot_ac_lull + plot_ac_play + 
+    plot_ac_proc + plot_ac_praise + plot_ac_heal + 
+    plot_ac_love + plot_ac_work + plot_ac_mourn + 
+    plot_ac_story + 
+    plot_layout(nrow=3,guides="collect")
+  
+  scatter_plot <- splot1 + splot2den + splot2 + 
+    plot_layout(nrow=3, heights=c(2.5,.3,4),guide="collect")
+  
+  small_tree_plot <- 
+    plot_ie_dance + plot_ie_lull +
+    plot_an_dance + plot_an_lull +
+    plot_ac_dance + plot_ac_lull +
+    plot_layout(nrow=3,guide="collect")
+  
+  layout <- "
+  ADE
+  BFG
+  CFG
+  CHI
+  "
+  final_plot <- 
+    splot1 + splot2den + splot2 + 
+    plot_ie_dance + plot_ie_lull +
+    plot_an_dance + plot_an_lull +
+    plot_ac_dance + plot_ac_lull +
+    plot_layout(design=layout,guide="collect",heights=c(1,.2,.8,1), widths=c(2,1,1))
+  
+  filename <- paste(here(),"/viz/fig5.png",sep="")
+  ggsave(filename=filename,final_plot,width=11,height=8)
+  
+  # save plot
+  # filename <- paste(here(),"/viz/fig5_final_options/Ascatter_",af,".png",sep="")
+  # ggsave(filename=filename,scatter_plot,width=6,height=7)
+  # 
+  # filename <- paste(here(),"/viz/fig5_final_options/Btrees_",af,".png",sep="")
+  # ggsave(filename=filename,tree_plot,width=30,height=8)
+}
+
+for (af in c("ex_spectral_centroid_mean","ex_tonal_mode_std","ex_spectral_spectenropy_mean")) {
+  df <- audio_data %>% filter(ex_tonal_mode_std<4,ex_spectral_centroid_mean<4)
+  plot_fig5(af, df, ie_subtree, an_subtree, ac_subtree, song_min=2)
+}
+
+af <- "ex_spectral_spectenropy_mean"
+plot_fig5(af, df, ie_subtree, an_subtree, ac_subtree, song_min=2)
+```
+
+
+``` {r check-family-n}
+grp<-"family_id"
+diff <- audio_data %>%
+  mutate(label = case_when(
+    grp=="family_id" ~ family_name,
+    grp=="glottocode" | grp=="language" ~ name,
+    grp=="region" ~ region,
+    .default=NA
+  )) %>%
+  rename("grouping"=grp,"feature"=af) %>%
+  group_by(grouping,type) %>%
+  summarize(grouping, type, label, count=length(type)) %>%
+  unique()
+
+diff2 <- diff %>% 
+  filter(type=="Dance"|type=="Lullaby") %>%
+  group_by(grouping) %>%
+  mutate(both_n=case_when(
+    "Dance" %in% type & "Lullaby" %in% type ~ sum(count),
+    .default=NA
+    )) %>% 
+  pivot_wider(names_from=type, values_from=count) %>%
+  select(grouping,label,both_n,Dance,Lullaby) %>% unique() %>% filter(!is.na(both_n))
+
+```

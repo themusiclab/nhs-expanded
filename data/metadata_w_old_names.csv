@@ -1,0 +1,1008 @@
+new_ids,song,type,region,glottocode
+NHS2-SZHN,NHS2-0002,Mourning,Amazon and Orinoco,gali1262
+NHS2-YYR4,NHS2-0004,Mourning,Amazon and Orinoco,boro1282
+NHS2-DYV5,NHS2-0005,Work,Amazon and Orinoco,boro1282
+NHS2-YJW0,NHS2-0006,Dance,Eastern South America,krah1246
+NHS2-LFHL,NHS2-0010,Healing,Amazon and Orinoco,gali1262
+NHS2-INOD,NHS2-0011,Mourning,Amazon and Orinoco,gali1262
+NHS2-765L,NHS2-0016,Healing,Northwestern South America,guan1269
+NHS2-CQFQ,NHS2-0017,Lullaby,Amazon and Orinoco,juru1256
+NHS2-8NOH,NHS2-0019,Story,Amazon and Orinoco,kama1373
+NHS2-6SKT,NHS2-0020,Play,Amazon and Orinoco,kana1291
+NHS2-IZWB,NHS2-0021,Dance,Amazon and Orinoco,kara1500
+NHS2-AOIU,NHS2-0022,Lullaby,Amazon and Orinoco,kara1500
+NHS2-3OQR,NHS2-0025,Praise,Amazon and Orinoco,kaya1330
+NHS2-TL0L,NHS2-0026,Procession,Amazon and Orinoco,kaya1330
+NHS2-5U0S,NHS2-0027,Dance,Amazon and Orinoco,kuik1246
+NHS2-RKZ9,NHS2-0028,Work,Amazon and Orinoco,maku1246
+NHS2-1S3V,NHS2-0029,Healing,Amazon and Orinoco,maqu1238
+NHS2-V7CJ,NHS2-0031,Story,Eastern South America,xakr1238
+NHS2-42SL,NHS2-0032,Healing,Amazon and Orinoco,pume1238
+NHS2-4ZIM,NHS2-0033,Dance,Amazon and Orinoco,sara1340
+NHS2-S7PH,NHS2-0034,Story,Amazon and Orinoco,sara1340
+NHS2-XNFH,NHS2-0035,Story,Amazon and Orinoco,sara1340
+NHS2-1EIA,NHS2-0036,Story,Amazon and Orinoco,sara1340
+NHS2-KZ4O,NHS2-0037,Work,Amazon and Orinoco,sara1340
+NHS2-XDF4,NHS2-0047,Love,Amazon and Orinoco,wara1303
+NHS2-UXKZ,NHS2-0049,Lullaby,Amazon and Orinoco,wara1303
+NHS2-UWXD,NHS2-0050,Love,Amazon and Orinoco,waya1269
+NHS2-OP3Q,NHS2-0052,Story,Amazon and Orinoco,yano1262
+NHS2-O9JH,NHS2-0053,Work,Amazon and Orinoco,macu1259
+NHS2-O8KV,NHS2-0055,Dance,Amazon and Orinoco,yawa1261
+NHS2-K74G,NHS2-0056,Healing,Amazon and Orinoco,yawa1261
+NHS2-A0SS,NHS2-0057,Story,Amazon and Orinoco,yawa1261
+NHS2-O8Q2,NHS2-0060,Praise,Arctic and Subarctic,cent2127
+NHS2-U13X,NHS2-0061,Love,Arctic and Subarctic,chip1241
+NHS2-OAN3,NHS2-0063,Dance,Arctic and Subarctic,east2534
+NHS2-HDX7,NHS2-0066,Lullaby,Arctic and Subarctic,east2534
+NHS2-WBOH,NHS2-0067,Lullaby,Arctic and Subarctic,east2534
+NHS2-DAQN,NHS2-0068,Play,Arctic and Subarctic,east2534
+NHS2-V02B,NHS2-0069,Play,Arctic and Subarctic,east2534
+NHS2-404H,NHS2-0078,Dance,Arctic and Subarctic,nort2943
+NHS2-JNHY,NHS2-0079,Story,Arctic and Subarctic,nort2943
+NHS2-M7UO,NHS2-0080,Healing,Arctic and Subarctic,nort2961
+NHS2-9ZG2,NHS2-0081,Dance,Arctic and Subarctic,ojib1241
+NHS2-ZW00,NHS2-0084,Dance,Arctic and Subarctic,west2618
+NHS2-VXQK,NHS2-0086,Story,Arctic and Subarctic,west2618
+NHS2-1BVB,NHS2-0087,Mourning,Australia,djap1238
+NHS2-3EPZ,NHS2-0090,Dance,Australia,yuul1239
+NHS2-TLF3,NHS2-0092,Dance,Australia,yuul1239
+NHS2-A55H,NHS2-0093,Love,Australia,dhuw1249
+NHS2-UDIY,NHS2-0095,Play,Polynesia,fiji1243
+NHS2-41ON,NHS2-0096,Dance,Australia,miri1266
+NHS2-R2MC,NHS2-0097,Story,Australia,gugu1254
+NHS2-BLMM,NHS2-0100,Story,Australia,gunw1252
+NHS2-6CQJ,NHS2-0101,Love,Australia,iwai1244
+NHS2-GJ4X,NHS2-0103,Lullaby,Australia,kabi1260
+NHS2-7NEZ,NHS2-0105,Lullaby,Australia,lard1243
+NHS2-HUX8,NHS2-0106,Praise,Australia,meri1244
+NHS2-R2YS,NHS2-0108,Work,Australia,meri1244
+NHS2-0TA2,NHS2-0109,Love,Australia,wala1272
+NHS2-O4JO,NHS2-0110,Dance,Australia,bard1255
+NHS2-G6Z0,NHS2-0111,Praise,Australia,pitj1243
+NHS2-D455,NHS2-0112,Dance,Australia,pitj1243
+NHS2-EIPU,NHS2-0114,Praise,Australia,pitj1243
+NHS2-7TO4,NHS2-0117,Dance,Australia,wadj1254
+NHS2-FBJU,NHS2-0123,Procession,Australia,warl1254
+NHS2-QFKF,NHS2-0124,Story,Australia,worr1236
+NHS2-BATN,NHS2-0125,Love,Australia,worr1236
+NHS2-EOE6,NHS2-0126,Dance,Australia,worr1237
+NHS2-A7EF,NHS2-0127,Mourning,Australia,wika1238
+NHS2-E2BN,NHS2-0128,Dance,Australia,woro1258
+NHS2-DJGN,NHS2-0129,Story,Australia,wuna1249
+NHS2-5D0K,NHS2-0130,Story,Australia,wuna1249
+NHS2-LY5K,NHS2-0137,Story,British Isles,ulst1241
+NHS2-9AU4,NHS2-0138,Story,British Isles,ulst1241
+NHS2-64UT,NHS2-0139,Work,British Isles,ulst1241
+NHS2-ELN7,NHS2-0143,Dance,British Isles,scot1245
+NHS2-719E,NHS2-0144,Love,British Isles,scot1245
+NHS2-L24F,NHS2-0145,Lullaby,British Isles,scot1245
+NHS2-TMH3,NHS2-0146,Praise,British Isles,scot1245
+NHS2-YY9J,NHS2-0149,Love,British Isles,stan1293
+NHS2-JEDY,NHS2-0150,Love,British Isles,stan1293
+NHS2-PUMI,NHS2-0151,Lullaby,British Isles,scot1245
+NHS2-JYMK,NHS2-0152,Mourning,British Isles,stan1293
+NHS2-J3ZC,NHS2-0154,Play,British Isles,stan1293
+NHS2-F1L8,NHS2-0155,Play,British Isles,stan1293
+NHS2-UE7S,NHS2-0156,Play,British Isles,lowe1445
+NHS2-1PUD,NHS2-0157,Play,British Isles,stan1293
+NHS2-JD8G,NHS2-0158,Procession,British Isles,stan1293
+NHS2-ACA2,NHS2-0163,Story,British Isles,iris1255
+NHS2-LEIP,NHS2-0164,Story,British Isles,iris1255
+NHS2-VBI9,NHS2-0165,Story,British Isles,stan1293
+NHS2-5IBT,NHS2-0170,Story,British Isles,stan1293
+NHS2-3LQ4,NHS2-0171,Dance,Caribbean,anti1245
+NHS2-1JW6,NHS2-0172,Dance,Caribbean,anti1245
+NHS2-ERLW,NHS2-0173,Lullaby,Caribbean,anti1245
+NHS2-IX9E,NHS2-0174,Story,Caribbean,anti1245
+NHS2-S2B4,NHS2-0175,Work,Caribbean,anti1245
+NHS2-F1GZ,NHS2-0176,Work,Caribbean,anti1245
+NHS2-ISYT,NHS2-0177,Dance,Caribbean,gren1247
+NHS2-ZX7S,NHS2-0179,Dance,Caribbean,gren1247
+NHS2-ULTX,NHS2-0180,Dance,Caribbean,gren1247
+NHS2-P5OG,NHS2-0181,Lullaby,Caribbean,gren1247
+NHS2-MRNQ,NHS2-0182,Lullaby,Caribbean,less1242
+NHS2-49MA,NHS2-0183,Dance,Caribbean,gren1247
+NHS2-D4UW,NHS2-0184,Mourning,Caribbean,gren1247
+NHS2-DNKN,NHS2-0185,Procession,Caribbean,gren1247
+NHS2-0NEA,NHS2-0186,Play,Caribbean,gren1247
+NHS2-8RLI,NHS2-0187,Story,Caribbean,gren1247
+NHS2-5AW1,NHS2-0188,Dance,Caribbean,guad1242
+NHS2-S1ZI,NHS2-0189,Dance,Caribbean,guad1242
+NHS2-3NY3,NHS2-0190,Dance,Caribbean,guad1242
+NHS2-5FGZ,NHS2-0191,Work,Caribbean,guad1242
+NHS2-484H,NHS2-0192,Love,Caribbean,hait1244
+NHS2-FUAL,NHS2-0193,Dance,Caribbean,hait1244
+NHS2-MV8X,NHS2-0194,Play,Caribbean,hait1244
+NHS2-DL2Z,NHS2-0195,Dance,Caribbean,sain1246
+NHS2-BM3C,NHS2-0197,Dance,Caribbean,mart1259
+NHS2-6W0X,NHS2-0199,Mourning,Caribbean,domi1242
+NHS2-29EL,NHS2-0201,Play,Caribbean,jama1262
+NHS2-ONH7,NHS2-0211,Story,Caribbean,stan1288
+NHS2-2UPM,NHS2-0214,Lullaby,Caribbean,less1242
+NHS2-8CML,NHS2-0215,Lullaby,Caribbean,gren1247
+NHS2-9MP5,NHS2-0225,Lullaby,Caribbean,gren1247
+NHS2-TBMU,NHS2-0226,Dance,Caucasus,abkh1244
+NHS2-KK34,NHS2-0227,Mourning,Caucasus,abkh1244
+NHS2-NLXG,NHS2-0228,Mourning,Caucasus,abkh1244
+NHS2-U0D9,NHS2-0229,Praise,Caucasus,abkh1244
+NHS2-2PAA,NHS2-0230,Praise,Caucasus,abkh1244
+NHS2-AGW9,NHS2-0231,Praise,Caucasus,abkh1244
+NHS2-M2XD,NHS2-0233,Procession,Caucasus,abkh1244
+NHS2-Z8E6,NHS2-0234,Praise,Caucasus,abkh1244
+NHS2-6HQM,NHS2-0235,Story,Caucasus,abkh1244
+NHS2-8K9B,NHS2-0236,Work,Caucasus,abkh1244
+NHS2-Y6V2,NHS2-0237,Love,Caucasus,nort2697
+NHS2-LCV6,NHS2-0238,Dance,Caucasus,nucl1235
+NHS2-XQPR,NHS2-0241,Dance,Caucasus,nucl1235
+NHS2-P36L,NHS2-0242,Dance,Caucasus,nucl1302
+NHS2-A57S,NHS2-0243,Dance,Caucasus,nucl1302
+NHS2-JM0N,NHS2-0244,Dance,Caucasus,osse1245
+NHS2-IOK8,NHS2-0245,Healing,Caucasus,nucl1302
+NHS2-43S3,NHS2-0246,Healing,Caucasus,nucl1302
+NHS2-46GT,NHS2-0247,Love,Caucasus,nucl1302
+NHS2-FY2K,NHS2-0248,Love,Caucasus,nucl1302
+NHS2-OFQP,NHS2-0249,Lullaby,Caucasus,nucl1302
+NHS2-1WCG,NHS2-0250,Mourning,Caucasus,nucl1302
+NHS2-6NQQ,NHS2-0251,Mourning,Caucasus,nucl1302
+NHS2-1E7A,NHS2-0252,Work,Caucasus,nucl1302
+NHS2-JZ6W,NHS2-0253,Praise,Caucasus,nucl1302
+NHS2-KEYP,NHS2-0255,Procession,Caucasus,nucl1302
+NHS2-M0AP,NHS2-0257,Story,Caucasus,nucl1302
+NHS2-SHDA,NHS2-0258,Work,Caucasus,nucl1302
+NHS2-TNEF,NHS2-0259,Work,Caucasus,nucl1302
+NHS2-WVCH,NHS2-0260,Work,Caucasus,nucl1302
+NHS2-HDCR,NHS2-0261,Work,Caucasus,nucl1302
+NHS2-Y649,NHS2-0262,Dance,Central Africa,akan1250
+NHS2-B0QQ,NHS2-0263,Lullaby,Central Africa,akan1250
+NHS2-GOPJ,NHS2-0264,Dance,Central Africa,aush1241
+NHS2-S814,NHS2-0265,Story,Central Africa,bant1295
+NHS2-DMS2,NHS2-0267,Healing,Central Africa,bila1255
+NHS2-J6LT,NHS2-0269,Praise,Central Africa,chad1249
+NHS2-8GIQ,NHS2-0270,Lullaby,Central Africa,tebu1238
+NHS2-B9PR,NHS2-0271,Dance,Central Africa,cent2225
+NHS2-T8UF,NHS2-0272,Love,Central Africa,fang1246
+NHS2-MU8R,NHS2-0275,Love,Central Africa,kiny1244
+NHS2-RFNO,NHS2-0276,Healing,Central Africa,koyo1242
+NHS2-N9YG,NHS2-0277,Lullaby,Central Africa,lito1235
+NHS2-0DXY,NHS2-0278,Play,Central Africa,lito1235
+NHS2-C15J,NHS2-0279,Play,Central Africa,lito1235
+NHS2-RCBL,NHS2-0280,Play,Central Africa,lito1235
+NHS2-XWL8,NHS2-0281,Procession,Central Africa,luba1249
+NHS2-IKPC,NHS2-0286,Dance,Central Africa,mong1338
+NHS2-SE7M,NHS2-0289,Lullaby,Central Africa,nort2775
+NHS2-18M3,NHS2-0291,Lullaby,Southern Africa,nsen1242
+NHS2-15NH,NHS2-0292,Work,Central Africa,nsen1242
+NHS2-DGJS,NHS2-0293,Work,Central Africa,phen1239
+NHS2-L177,NHS2-0294,Mourning,Central Africa,poke1238
+NHS2-E7QN,NHS2-0295,Work,Central Africa,poke1238
+NHS2-UL4E,NHS2-0297,Healing,Central Africa,west2458
+NHS2-M0QV,NHS2-0298,Healing,Central Africa,west2721
+NHS2-50PO,NHS2-0299,Story,Central Africa,yaka1272
+NHS2-HBHZ,NHS2-0300,Story,Central Africa,bamb1264
+NHS2-YTTL,NHS2-0303,Dance,Central America,gari1256
+NHS2-K0S3,NHS2-0304,Love,Central America,vinc1243
+NHS2-13WN,NHS2-0305,Love,Central America,gari1256
+NHS2-LO2V,NHS2-0306,Dance,Central America,gari1256
+NHS2-L4ES,NHS2-0307,Praise,Central America,gari1256
+NHS2-O4O6,NHS2-0308,Procession,Maya Area,gari1256
+NHS2-7LJJ,NHS2-0309,Procession,Maya Area,gari1256
+NHS2-UVHG,NHS2-0310,Story,Maya Area,gari1256
+NHS2-7O44,NHS2-0311,Story,Maya Area,gari1256
+NHS2-D9WG,NHS2-0312,Work,Maya Area,gari1256
+NHS2-ATWM,NHS2-0313,Story,Central America,misk1235
+NHS2-O0LK,NHS2-0314,Story,Central America,misk1235
+NHS2-WQYY,NHS2-0315,Story,Central America,west2854
+NHS2-IE0N,NHS2-0316,Story,Central America,sana1297
+NHS2-R2EN,NHS2-0317,Story,Central America,nica1252
+NHS2-9K3U,NHS2-0318,Dance,Northwestern South America,choc1280
+NHS2-5BTW,NHS2-0319,Healing,Central America,nort2972
+NHS2-KSRM,NHS2-0320,Healing,Central America,nort2972
+NHS2-SF43,NHS2-0321,Dance,Central America,pipi1250
+NHS2-PX6B,NHS2-0322,Healing,Central America,sanb1242
+NHS2-E1MN,NHS2-0324,Lullaby,Central America,sanb1242
+NHS2-2KUR,NHS2-0325,Lullaby,Central America,sanb1242
+NHS2-HRC7,NHS2-0327,Love,Central America,stan1288
+NHS2-PB4T,NHS2-0328,Lullaby,Central America,stan1288
+NHS2-X1WQ,NHS2-0329,Lullaby,Central America,stan1288
+NHS2-J69Y,NHS2-0330,Lullaby,Central America,stan1288
+NHS2-9TJI,NHS2-0331,Praise,Central America,stan1288
+NHS2-ZCTI,NHS2-0332,Praise,Central America,stan1288
+NHS2-AD22,NHS2-0333,Praise,Central America,stan1288
+NHS2-7J2N,NHS2-0334,Praise,Central America,stan1288
+NHS2-S6AP,NHS2-0335,Praise,Central America,stan1288
+NHS2-DGE5,NHS2-0336,Story,Central America,nica1252
+NHS2-6U9V,NHS2-0337,Dance,Central Andes,coca1259
+NHS2-DG59,NHS2-0338,Love,Central Andes,ayac1239
+NHS2-6NUZ,NHS2-0339,Mourning,Central Andes,ayac1239
+NHS2-ERSV,NHS2-0340,Praise,Central Andes,ayac1239
+NHS2-LEX9,NHS2-0341,Work,Central Andes,ayac1239
+NHS2-ZRGY,NHS2-0342,Healing,Northwestern South America,ecua1248
+NHS2-JRIA,NHS2-0343,Lullaby,Central Andes,cent2142
+NHS2-706E,NHS2-0344b,Mourning,Central Andes,nucl1667
+NHS2-42H9,NHS2-0346,Work,Central Andes,cent2142
+NHS2-ZGKC,NHS2-0347,Healing,Northwestern South America,chac1249
+NHS2-XJ7U,NHS2-0348,Healing,Northwestern South America,chac1249
+NHS2-EPF6,NHS2-0355,Lullaby,Central Andes,cusc1236
+NHS2-MY33,NHS2-0357,Procession,Central Andes,cusc1236
+NHS2-74S4,NHS2-0358,Story,Central Andes,cusc1236
+NHS2-HMC7,NHS2-0359,Play,Northwestern South America,stan1288
+NHS2-9P04,NHS2-0363,Lullaby,Central Andes,ship1254
+NHS2-CN26,NHS2-0364,Dance,Central Andes,jiva1245
+NHS2-4H1R,NHS2-0365,Procession,Central Andes,sout2991
+NHS2-FVGG,NHS2-0366,Procession,Central Andes,sout2996
+NHS2-2FZK,NHS2-0369,Love,Central Asia,bukh1238
+NHS2-340R,NHS2-0371,Love,Central Asia,bukh1238
+NHS2-C2VY,NHS2-0373,Dance,Central Asia,bukh1238
+NHS2-CS8N,NHS2-0374,Mourning,Central Asia,buru1296
+NHS2-R09B,NHS2-0375,Love,Central Asia,dari1249
+NHS2-LF3O,NHS2-0377,Lullaby,Central Asia,kara1467
+NHS2-ZTKY,NHS2-0379,Work,Central Asia,kaza1248
+NHS2-FM7L,NHS2-0381,Story,Central Asia,kirg1245
+NHS2-URYE,NHS2-0382,Work,Central Asia,nort2646
+NHS2-PBI3,NHS2-0383,Love,Caucasus,nucl1235
+NHS2-OW5R,NHS2-0384,Love,Caucasus,nucl1235
+NHS2-VVZF,NHS2-0386,Love,Central Asia,taji1245
+NHS2-UJ0X,NHS2-0387,Love,Central Asia,taji1245
+NHS2-7M2U,NHS2-0389,Love,Central Asia,taji1245
+NHS2-BPA8,NHS2-0390,Love,Central Asia,taji1245
+NHS2-M00Z,NHS2-0391,Praise,Central Asia,shug1248
+NHS2-G277,NHS2-0392,Healing,Central Asia,tuvi1240
+NHS2-2ZO6,NHS2-0393,Lullaby,Central Asia,tuvi1240
+NHS2-0NQ8,NHS2-0394,Mourning,Central Asia,tuvi1240
+NHS2-KZJ0,NHS2-0395,Praise,Central Asia,tuvi1240
+NHS2-YG7G,NHS2-0398,Healing,Central Asia,uigh1240
+NHS2-MWH7,NHS2-0401,Love,Central Asia,uigh1240
+NHS2-XQVH,NHS2-0405,Work,Central Europe,bava1246
+NHS2-7A2U,NHS2-0406,Love,Central Europe,czec1258
+NHS2-XYGX,NHS2-0407,Lullaby,Central Europe,czec1258
+NHS2-E879,NHS2-0408,Dance,Central Europe,hung1274
+NHS2-IU31,NHS2-0410,Lullaby,Central Europe,hung1274
+NHS2-LVNB,NHS2-0411,Mourning,Central Europe,hung1274
+NHS2-I7H2,NHS2-0412,Mourning,Central Europe,hung1274
+NHS2-YN1A,NHS2-0414,Work,Central Europe,hung1274
+NHS2-D7UD,NHS2-0415,Praise,Central Europe,kash1274
+NHS2-G82R,NHS2-0416,Dance,Central Europe,poli1260
+NHS2-9RD9,NHS2-0417,Mourning,Central Europe,roma1327
+NHS2-BZJ0,NHS2-0418,Procession,Central Europe,roma1327
+NHS2-HELI,NHS2-0419,Love,Central Europe,slov1269
+NHS2-3370,NHS2-0424,Lullaby,Central Europe,stan1295
+NHS2-0NL4,NHS2-0426,Story,Central Europe,stan1295
+NHS2-QR1J,NHS2-0427,Work,Central Europe,stan1295
+NHS2-TTHU,NHS2-0428,Work,Central Europe,stan1295
+NHS2-6R84,NHS2-0429,Work,Central Europe,lowg1239
+NHS2-HO68,NHS2-0450,Work,Central Mexico,elna1235
+NHS2-966Z,NHS2-0451,Work,Central Mexico,elna1235
+NHS2-QIQS,NHS2-0456,Healing,Central Mexico,huau1238
+NHS2-VA7K,NHS2-0460,Dance,Central Mexico,huic1243
+NHS2-UYG4,NHS2-0461,Dance,Central Mexico,huic1243
+NHS2-XTHW,NHS2-0464,Healing,Central Mexico,huic1243
+NHS2-5W5A,NHS2-0469,Procession,Central Mexico,huic1243
+NHS2-UDOB,NHS2-0477,Play,Central Mexico,mezq1235
+NHS2-2C5Q,NHS2-0483,Love,Central Mexico,pure1242
+NHS2-3XWB,NHS2-0484,Love,Central Mexico,pure1242
+NHS2-0NMW,NHS2-0487,Praise,Central Mexico,pure1242
+NHS2-0CO2,NHS2-0488,Love,Central Mexico,pure1242
+NHS2-AZDQ,NHS2-0497,Story,Central Mexico,stan1288
+NHS2-OS0A,NHS2-0498,Story,Central Mexico,stan1288
+NHS2-EYN4,NHS2-0499,Story,Central Mexico,stan1288
+NHS2-UOE5,NHS2-0500,Story,Central Mexico,stan1288
+NHS2-3WPM,NHS2-0501,Story,Central Mexico,stan1288
+NHS2-5H86,NHS2-0504,Dance,East Asia,ainu1240
+NHS2-KTO4,NHS2-0505,Love,East Asia,ainu1240
+NHS2-4RBL,NHS2-0507,Lullaby,East Asia,ainu1240
+NHS2-R4T4,NHS2-0516,Work,East Asia,amis1246
+NHS2-6N1B,NHS2-0517,Love,East Asia,atay1247
+NHS2-NSJK,NHS2-0518,Praise,East Asia,bunu1267
+NHS2-BK1J,NHS2-0519,Healing,East Asia,bunu1267
+NHS2-P3GF,NHS2-0520,Healing,East Asia,bunu1267
+NHS2-CDWZ,NHS2-0522,Work,East Asia,bunu1267
+NHS2-VBEZ,NHS2-0523,Lullaby,East Asia,cent2126
+NHS2-0459,NHS2-0524,Work,East Asia,cent2126
+NHS2-JWTY,NHS2-0525,Healing,East Asia,kore1280
+NHS2-ZWHJ,NHS2-0526,Mourning,East Asia,kore1280
+NHS2-NQ2U,NHS2-0530,Story,East Asia,kore1280
+NHS2-5THI,NHS2-0531,Story,East Asia,kore1280
+NHS2-IAY0,NHS2-0532,Story,East Asia,kore1280
+NHS2-U1QE,NHS2-0533,Work,East Asia,kore1280
+NHS2-2OS6,NHS2-0536,Work,East Asia,mand1415
+NHS2-PFF9,NHS2-0538,Love,East Asia,nucl1643
+NHS2-XD70,NHS2-0539,Play,East Asia,nucl1643
+NHS2-BLC6,NHS2-0540,Story,East Asia,nucl1643
+NHS2-Z83P,NHS2-0541,Work,East Asia,nucl1643
+NHS2-7XOX,NHS2-0542,Work,East Asia,nucl1643
+NHS2-WBRK,NHS2-0543,Procession,East Asia,paiw1248
+NHS2-QKS7,NHS2-0547,Work,East Asia,puyu1239
+NHS2-SAZD,NHS2-0548,Work,East Asia,puyu1239
+NHS2-506Y,NHS2-0549,Love,East Asia,ruka1240
+NHS2-BBPJ,NHS2-0555,Dance,East Asia,nort2935
+NHS2-4KJ4,NHS2-0556,Love,East Asia,okin1245
+NHS2-FLYQ,NHS2-0557,Mourning,East Asia,nort2935
+NHS2-ED96,NHS2-0558,Dance,East Asia,nort2935
+NHS2-I88T,NHS2-0559,Love,East Asia,baic1239
+NHS2-X0I4,NHS2-0561,Story,East Asia,yami1254
+NHS2-VRBB,NHS2-0563,Lullaby,Eastern Africa,acol1236
+NHS2-P594,NHS2-0564,Play,Eastern Africa,acol1236
+NHS2-79G9,NHS2-0566,Work,Eastern Africa,afar1241
+NHS2-Z7UP,NHS2-0567,Play,Eastern Africa,alur1250
+NHS2-C07W,NHS2-0569,Love,Eastern Africa,amha1245
+NHS2-HFUR,NHS2-0570,Praise,Eastern Africa,amha1245
+NHS2-BU0J,NHS2-0571,Lullaby,Eastern Africa,chig1238
+NHS2-OEHE,NHS2-0572,Procession,Eastern Africa,dizi1235
+NHS2-NIM5,NHS2-0575,Healing,Eastern Africa,gand1255
+NHS2-GXXC,NHS2-0576,Lullaby,Eastern Africa,gand1255
+NHS2-O5RD,NHS2-0577,Play,Eastern Africa,gand1255
+NHS2-QQ8E,NHS2-0594,Play,Eastern Africa,kara1483
+NHS2-3U9L,NHS2-0595,Procession,Eastern Africa,kara1483
+NHS2-0ERR,NHS2-0596,Work,Eastern Africa,kara1483
+NHS2-2G3N,NHS2-0598,Play,Eastern Africa,kups1238
+NHS2-NHW2,NHS2-0599,Story,Eastern Africa,madi1260
+NHS2-BMGH,NHS2-0601,Dance,Eastern Africa,masa1300
+NHS2-F8W7,NHS2-0607,Lullaby,Eastern Africa,nyan1315
+NHS2-U904,NHS2-0612,Play,Eastern Africa,soga1242
+NHS2-61T0,NHS2-0625,Lullaby,Eastern Europe,esto1258
+NHS2-P5JI,NHS2-0627,Story,Central Asia,kaza1248
+NHS2-YJU7,NHS2-0629,Story,Eastern Europe,komi1269
+NHS2-155V,NHS2-0632,Lullaby,Eastern Europe,latv1249
+NHS2-9HTB,NHS2-0636,Lullaby,Eastern Europe,lith1251
+NHS2-06FQ,NHS2-0641,Dance,Eastern Europe,russ1263
+NHS2-AO12,NHS2-0642,Dance,Eastern Europe,russ1263
+NHS2-EOY7,NHS2-0644,Love,Eastern Europe,russ1263
+NHS2-7TL9,NHS2-0645,Love,Eastern Europe,russ1263
+NHS2-5S2Y,NHS2-0646,Lullaby,Eastern Europe,russ1263
+NHS2-UBTJ,NHS2-0647,Lullaby,Eastern Europe,russ1263
+NHS2-4IIR,NHS2-0648,Mourning,Eastern Europe,russ1263
+NHS2-UY25,NHS2-0649,Play,Eastern Europe,russ1263
+NHS2-1C8B,NHS2-0650,Play,Eastern Europe,russ1263
+NHS2-FMYE,NHS2-0651,Play,Eastern Europe,russ1263
+NHS2-RNFL,NHS2-0652,Procession,Eastern Europe,russ1263
+NHS2-10S6,NHS2-0653,Procession,Eastern Europe,russ1263
+NHS2-VLYL,NHS2-0655,Story,North Asia,russ1263
+NHS2-ZVHE,NHS2-0657,Work,Eastern Europe,russ1263
+NHS2-MGHC,NHS2-0658,Dance,Eastern Europe,udmu1245
+NHS2-UH4B,NHS2-0659,Love,Eastern Europe,udmu1245
+NHS2-ZHE1,NHS2-0660,Lullaby,Eastern Europe,udmu1245
+NHS2-17SD,NHS2-0661,Mourning,Eastern Europe,udmu1245
+NHS2-44OX,NHS2-0663,Play,Eastern Europe,udmu1245
+NHS2-I699,NHS2-0665,Work,Eastern Europe,mari1278
+NHS2-7YXU,NHS2-0667,Mourning,Eastern South America,kain1272
+NHS2-X35A,NHS2-0669,Lullaby,Eastern South America,kara1500
+NHS2-K4KT,NHS2-0671a,Story,Eastern South America,kuik1246
+NHS2-JIGG,NHS2-0671b,Story,Eastern South America,kuik1246
+NHS2-CRM7,NHS2-0671c,Story,Eastern South America,kuik1246
+NHS2-0OOB,NHS2-0671d,Story,Eastern South America,kuik1246
+NHS2-BCPU,NHS2-0673,Dance,Eastern South America,pali1279
+NHS2-7SRW,NHS2-0676,Love,Eastern South America,para1319
+NHS2-613U,NHS2-0678,Dance,Eastern South America,port1283
+NHS2-56CV,NHS2-0679,Healing,Eastern South America,port1283
+NHS2-ALKM,NHS2-0680,Healing,Eastern South America,port1283
+NHS2-F57Y,NHS2-0681,Healing,Eastern South America,port1283
+NHS2-G35E,NHS2-0685,Procession,Eastern South America,port1283
+NHS2-E9PI,NHS2-0686,Procession,Eastern South America,port1283
+NHS2-PC3P,NHS2-0687,Procession,Eastern South America,port1283
+NHS2-1GHP,NHS2-0688,Work,Eastern South America,port1283
+NHS2-DX7L,NHS2-0698,Healing,Eastern South America,trio1238
+NHS2-SBII,NHS2-0699,Lullaby,Eastern South America,tupi1276
+NHS2-HXRM,NHS2-0700,Dance,Eastern South America,waya1269
+NHS2-1O99,NHS2-0701,Dance,Eastern South America,waya1269
+NHS2-2RHZ,NHS2-0702,Healing,Eastern South America,waya1269
+NHS2-25NZ,NHS2-0703,Praise,Eastern South America,waya1269
+NHS2-U21V,NHS2-0706,Healing,Eastern Woodlands,cayu1261
+NHS2-UGUF,NHS2-0707,Lullaby,Eastern Woodlands,cher1273
+NHS2-Z441,NHS2-0709,Story,Eastern Woodlands,mika1239
+NHS2-GPDW,NHS2-0711,Healing,Eastern Woodlands,mika1239
+NHS2-PGOU,NHS2-0712,Story,Eastern Woodlands,mika1239
+NHS2-KWD9,NHS2-0713,Love,Eastern Woodlands,mikm1235
+NHS2-TOVS,NHS2-0714,Praise,Eastern Woodlands,mikm1235
+NHS2-TVDK,NHS2-0717,Story,Eastern Woodlands,onei1249
+NHS2-12A9,NHS2-0719,Dance,Eastern Woodlands,onon1246
+NHS2-179A,NHS2-0720,Dance,Eastern Woodlands,sene1264
+NHS2-PC0R,NHS2-0721,Dance,Eastern Woodlands,sene1264
+NHS2-PCBC,NHS2-0722,Dance,Eastern Woodlands,sene1264
+NHS2-7HRT,NHS2-0723,Healing,Eastern Woodlands,sene1264
+NHS2-2OQH,NHS2-0724,Healing,Eastern Woodlands,sene1264
+NHS2-5C46,NHS2-0725,Mourning,Eastern Woodlands,sene1264
+NHS2-KQ7F,NHS2-0726,Praise,Eastern Woodlands,sene1264
+NHS2-XJDQ,NHS2-0727,Procession,Eastern Woodlands,sene1264
+NHS2-P426,NHS2-0729,Work,Northwest Coast,tlin1245
+NHS2-9EQ3,NHS2-0730,Lullaby,Maya Area,gari1256
+NHS2-GYY9,NHS2-0731,Lullaby,Maya Area,gari1256
+NHS2-131U,NHS2-0732,Dance,Maya Area,gari1256
+NHS2-AHRQ,NHS2-0733,Mourning,Maya Area,gari1256
+NHS2-YDIO,NHS2-0734,Love,Maya Area,guer1241
+NHS2-CQH0,NHS2-0735,Lullaby,Maya Area,guer1241
+NHS2-TGEC,NHS2-0736,Procession,Maya Area,ixil1251
+NHS2-OPGO,NHS2-0738,Lullaby,Maya Area,kekc1242
+NHS2-BBYW,NHS2-0740,Love,Maya Area,ladi1251
+NHS2-58Q4,NHS2-0741,Play,Maya Area,stan1288
+NHS2-MLGC,NHS2-0742,Play,Maya Area,stan1288
+NHS2-27QB,NHS2-0745,Mourning,Maya Area,maya1287
+NHS2-P2A1,NHS2-0746,Dance,Maya Area,tzot1259
+NHS2-BUR0,NHS2-0747,Healing,Maya Area,yuca1254
+NHS2-60XM,NHS2-0748,Lullaby,Maya Area,stan1288
+NHS2-U16R,NHS2-0757,Healing,Melanesia,sepi1257
+NHS2-LKVC,NHS2-0758,Lullaby,Melanesia,baeg1237
+NHS2-JZTN,NHS2-0759,Story,Melanesia,baeg1237
+NHS2-J94J,NHS2-0763,Mourning,Southeast Asia,eipo1242
+NHS2-NGPL,NHS2-0766,Story,Melanesia,fata1245
+NHS2-1FS4,NHS2-0768,Praise,Melanesia,kala1377
+NHS2-TQBZ,NHS2-0772,Mourning,Melanesia,kaul1240
+NHS2-B3BI,NHS2-0780a,Work,Melanesia,pura1257
+NHS2-5M11,NHS2-0781a,Work,Melanesia,aman1265
+NHS2-76SZ,NHS2-0783,Procession,Melanesia,kuma1280
+NHS2-I3RO,NHS2-0791,Love,Melanesia,melp1238
+NHS2-2BT6,NHS2-0795,Dance,Melanesia,loya1239
+NHS2-SIPH,NHS2-0796,Lullaby,Melanesia,kwen1247
+NHS2-KEES,NHS2-0800,Work,Melanesia,tang1348
+NHS2-Y0IQ,NHS2-0808,Praise,Melanesia,tokp1240
+NHS2-QE86,NHS2-0814,Story,Melanesia,vani1248
+NHS2-P4RY,NHS2-0815,Healing,Melanesia,oloo1241
+NHS2-53YA,NHS2-0816,Dance,Micronesia,gilb1244
+NHS2-O9IK,NHS2-0817,Healing,Micronesia,chuu1238
+NHS2-SXIG,NHS2-0819,Love,Micronesia,chuu1238
+NHS2-ZO18,NHS2-0825,Mourning,Micronesia,pala1344
+NHS2-33X8,NHS2-0835,Play,Micronesia,ulit1238
+NHS2-30HL,NHS2-0836,Procession,Micronesia,ulit1238
+NHS2-IR7K,NHS2-0838,Story,Micronesia,ulit1238
+NHS2-D16Y,NHS2-0840,Work,Micronesia,ulit1238
+NHS2-O2X0,NHS2-0841,Work,Micronesia,ulit1238
+NHS2-DNTO,NHS2-0842,Healing,Micronesia,wole1240
+NHS2-8WO9,NHS2-0843,Healing,Micronesia,wole1240
+NHS2-MZ0X,NHS2-0844,Healing,Micronesia,wole1240
+NHS2-YWDM,NHS2-0845,Healing,Micronesia,wole1240
+NHS2-RSUK,NHS2-0846,Love,Micronesia,wole1240
+NHS2-JDU3,NHS2-0847,Love,Micronesia,wole1240
+NHS2-945J,NHS2-0848,Love,Micronesia,wole1240
+NHS2-T3VD,NHS2-0849,Love,Micronesia,wole1240
+NHS2-XTVF,NHS2-0850,Mourning,Micronesia,wole1240
+NHS2-85GU,NHS2-0851,Mourning,Micronesia,wole1240
+NHS2-2EKA,NHS2-0852,Praise,Micronesia,pala1344
+NHS2-FSVL,NHS2-0853,Praise,Micronesia,wole1240
+NHS2-SI3B,NHS2-0854,Praise,Micronesia,wole1240
+NHS2-YP5F,NHS2-0855,Praise,Micronesia,wole1240
+NHS2-VAAN,NHS2-0856,Praise,Micronesia,wole1240
+NHS2-UJC0,NHS2-0857,Praise,Micronesia,wole1240
+NHS2-FSYR,NHS2-0858,Praise,Micronesia,wole1240
+NHS2-NH07,NHS2-0859,Praise,Micronesia,wole1240
+NHS2-EVMY,NHS2-0860,Praise,Micronesia,wole1240
+NHS2-UO3R,NHS2-0861,Praise,Micronesia,wole1240
+NHS2-PNXC,NHS2-0862,Praise,Micronesia,wole1240
+NHS2-02B5,NHS2-0863,Story,Micronesia,wole1240
+NHS2-HMPO,NHS2-0864,Story,Micronesia,wole1240
+NHS2-3QA7,NHS2-0865,Story,Micronesia,wole1240
+NHS2-JP5C,NHS2-0866,Story,Micronesia,wole1240
+NHS2-IEJB,NHS2-0867,Story,Micronesia,wole1240
+NHS2-G3FF,NHS2-0868,Mourning,Micronesia,wole1240
+NHS2-W025,NHS2-0869,Story,Micronesia,wole1240
+NHS2-6IWA,NHS2-0870,Story,Micronesia,yape1248
+NHS2-YLEN,NHS2-0872,Dance,Micronesia,yape1248
+NHS2-9Y4I,NHS2-0873,Dance,Micronesia,yape1248
+NHS2-N13N,NHS2-0874,Healing,Micronesia,yape1248
+NHS2-K2OH,NHS2-0875,Lullaby,Micronesia,yape1248
+NHS2-SCB2,NHS2-0876,Procession,Micronesia,yape1248
+NHS2-JCFF,NHS2-0877,Procession,Micronesia,yape1248
+NHS2-5KU4,NHS2-0878,Dance,Micronesia,yape1248
+NHS2-1SJM,NHS2-0879,Story,Micronesia,yape1248
+NHS2-KOWN,NHS2-0881,Work,Micronesia,yape1248
+NHS2-EZD1,NHS2-0882,Work,Micronesia,yape1248
+NHS2-0DSZ,NHS2-0884,Dance,Middle East,cent1972
+NHS2-V3JT,NHS2-0885,Love,Middle East,cent1972
+NHS2-985K,NHS2-0887,Love,Caucasus,cent1972
+NHS2-SN80,NHS2-0888,Love,Middle East,cent1972
+NHS2-X9YD,NHS2-0889,Love,Middle East,cent1972
+NHS2-6LBX,NHS2-0890,Love,Middle East,cent1972
+NHS2-YRRB,NHS2-0891,Love,Middle East,cent1972
+NHS2-T8GK,NHS2-0892,Lullaby,Middle East,cent1972
+NHS2-EAKC,NHS2-0893,Mourning,Middle East,cent1972
+NHS2-V8Y5,NHS2-0894,Praise,Middle East,cent1972
+NHS2-L75M,NHS2-0896,Work,Middle East,gulf1241
+NHS2-XZS0,NHS2-0897,Procession,Middle East,hadr1236
+NHS2-AMSU,NHS2-0898,Work,Middle East,hadr1236
+NHS2-3ID0,NHS2-0899,Story,Middle East,maza1291
+NHS2-LU0Q,NHS2-0901,Story,Middle East,nort2641
+NHS2-XU3K,NHS2-0902,Mourning,Middle East,nort3139
+NHS2-ZU2O,NHS2-0903,Mourning,Middle East,nort3139
+NHS2-24OH,NHS2-0904,Dance,Central Asia,taji1245
+NHS2-P7C5,NHS2-0905,Love,Central Asia,taji1245
+NHS2-PSEZ,NHS2-0906,Healing,Middle East,turk1304
+NHS2-MQJA,NHS2-0908,Dance,North Asia,chuk1273
+NHS2-2BQL,NHS2-0909,Dance,North Asia,chuk1273
+NHS2-KEAW,NHS2-0910,Lullaby,North Asia,chuk1273
+NHS2-V8VZ,NHS2-0911,Work,North Asia,chuk1273
+NHS2-8HH5,NHS2-0912,Work,North Asia,chuk1273
+NHS2-WKJ6,NHS2-0913,Dance,North Asia,even1259
+NHS2-T4JD,NHS2-0914,Dance,North Asia,even1259
+NHS2-3T3T,NHS2-0915,Healing,North Asia,even1259
+NHS2-4NOR,NHS2-0916,Healing,North Asia,even1259
+NHS2-BMTG,NHS2-0918,Lullaby,North Asia,gily1242
+NHS2-84QJ,NHS2-0919,Lullaby,North Asia,gily1242
+NHS2-FAYF,NHS2-0920,Work,North Asia,gily1242
+NHS2-8HYJ,NHS2-0921,Dance,North Asia,kory1246
+NHS2-2OZH,NHS2-0924,Healing,North Asia,nana1257
+NHS2-5IXS,NHS2-0925,Lullaby,North Asia,nana1257
+NHS2-8Z3Q,NHS2-0926,Story,North Asia,nana1257
+NHS2-YH6E,NHS2-0927,Work,North Asia,nana1257
+NHS2-RSPL,NHS2-0931,Lullaby,North Asia,nort2745
+NHS2-1MJA,NHS2-0933,Dance,North Asia,russ1264
+NHS2-AJ1X,NHS2-0934,Play,North Asia,russ1264
+NHS2-YXHK,NHS2-0937,Love,North Asia,selk1253
+NHS2-NE2L,NHS2-0943,Mourning,North Asia,yaku1245
+NHS2-CLZB,NHS2-0944,Play,North Asia,yaku1245
+NHS2-YVEE,NHS2-0945,Story,North Asia,yaku1245
+NHS2-0878,NHS2-0948,Praise,Northern Africa,cent2194
+NHS2-GN0J,NHS2-0950,Dance,Northern Africa,gour1247
+NHS2-SLI8,NHS2-0951,Praise,Northern Africa,hass1238
+NHS2-R3J7,NHS2-0952,Story,Northern Africa,hass1238
+NHS2-W0KE,NHS2-0954,Love,Northern Africa,nubi1251
+NHS2-FIKU,NHS2-0957,Healing,Southern Africa,dama1270
+NHS2-6VND,NHS2-0958,Procession,Northern Africa,beja1238
+NHS2-KHKQ,NHS2-0962,Mourning,Eastern Africa,pari1256
+NHS2-1IVN,NHS2-0965,Procession,Northern Africa,arab1395
+NHS2-LXQB,NHS2-0966,Procession,Northern Africa,atla1275
+NHS2-MQEX,NHS2-0968,Lullaby,Northern Africa,tuar1240
+NHS2-PCMH,NHS2-0969,Mourning,Northern Africa,tuar1240
+NHS2-IPN6,NHS2-0971,Love,Northern Africa,tama1365
+NHS2-GGHC,NHS2-0972,Love,Northern Africa,tama1365
+NHS2-CRJW,NHS2-0973,Healing,Northern Africa,tuni1259
+NHS2-A6ZN,NHS2-0975,Story,Northern Mexico,cent2131
+NHS2-DE8R,NHS2-0977,Dance,Northern Mexico,yaqu1251
+NHS2-RH4A,NHS2-0978,Dance,Northern Mexico,elna1235
+NHS2-3OER,NHS2-0982,Love,Northern Mexico,huic1243
+NHS2-Z8Q6,NHS2-0984,Dance,Northern Mexico,mayo1264
+NHS2-6WJ2,NHS2-0986,Healing,Northern Mexico,seri1257
+NHS2-U27X,NHS2-0987,Lullaby,Northern Mexico,seri1257
+NHS2-S33R,NHS2-0988,Procession,Northern Mexico,seri1257
+NHS2-JL5D,NHS2-0990,Love,Northern Mexico,stan1288
+NHS2-66UQ,NHS2-0993,Story,Northern Mexico,stan1288
+NHS2-4MSG,NHS2-0994,Story,Northern Mexico,stan1288
+NHS2-PKDR,NHS2-0996,Dance,Northern Mexico,yaqu1251
+NHS2-SIW1,NHS2-0999b,Lullaby,Northwest Coast and California,nucl1649
+NHS2-ELP3,NHS2-1000,Lullaby,Northwest Coast and California,haid1248
+NHS2-OIRZ,NHS2-1002,Healing,Northwest Coast and California,kwak1269
+NHS2-8TRZ,NHS2-1003,Healing,Northwest Coast and California,kwak1269
+NHS2-8QBW,NHS2-1004,Love,Northwest Coast and California,kwak1269
+NHS2-I0MN,NHS2-1005,Procession,Northwest Coast and California,kwak1269
+NHS2-VX6K,NHS2-1008,Dance,Northwest Coast and California,nuuc1236
+NHS2-T1CP,NHS2-1011,Dance,Northwest Coast and California,tlin1245
+NHS2-XHF3,NHS2-1014,Dance,Northwestern South America,arhu1242
+NHS2-4KP9,NHS2-1015,Healing,Northwestern South America,arhu1242
+NHS2-LQB9,NHS2-1022,Dance,Northwestern South America,chac1249
+NHS2-405L,NHS2-1023,Healing,Northwestern South America,cogu1240
+NHS2-TKZU,NHS2-1024,Love,Northwestern South America,cogu1240
+NHS2-VN77,NHS2-1025,Mourning,Northwestern South America,amer1254
+NHS2-FNOC,NHS2-1026,Mourning,Northwestern South America,amer1254
+NHS2-0OA3,NHS2-1031,Work,Northwestern South America,piar1243
+NHS2-1G5V,NHS2-1033,Healing,Northwestern South America,shua1257
+NHS2-BJKN,NHS2-1034,Love,Northwestern South America,jiva1245
+NHS2-YLXK,NHS2-1035,Love,Northwestern South America,jiva1245
+NHS2-V8OE,NHS2-1036,Lullaby,Northwestern South America,shua1257
+NHS2-3GZM,NHS2-1037,Dance,Northwestern South America,stan1288
+NHS2-BCK7,NHS2-1039,Dance,Northwestern South America,stan1288
+NHS2-Z96V,NHS2-1041,Lullaby,Northwestern South America,stan1288
+NHS2-MSYE,NHS2-1042,Lullaby,Northwestern South America,stan1288
+NHS2-ES3W,NHS2-1045,Mourning,Northwestern South America,stan1288
+NHS2-DW2U,NHS2-1046,Story,Northwestern South America,stan1288
+NHS2-6B0V,NHS2-1047,Play,Northwestern South America,stan1288
+NHS2-EXGU,NHS2-1048,Play,Northwestern South America,stan1288
+NHS2-2YCF,NHS2-1049,Play,Northwestern South America,stan1288
+NHS2-K4KN,NHS2-1050,Play,Northwestern South America,stan1288
+NHS2-VP4E,NHS2-1054,Procession,Northwestern South America,stan1288
+NHS2-HMFN,NHS2-1059,Story,Northwestern South America,waor1240
+NHS2-2QZ5,NHS2-1061,Lullaby,Northwestern South America,wayu1243
+NHS2-KTHL,NHS2-1066,Play,Plains and Plateau,chey1247
+NHS2-QU3B,NHS2-1067,Dance,Plains and Plateau,cree1272
+NHS2-9BBL,NHS2-1068,Healing,Plains and Plateau,lako1247
+NHS2-LFIO,NHS2-1069,Praise,Plains and Plateau,dako1258
+NHS2-NODK,NHS2-1070,Healing,Plains and Plateau,kali1308
+NHS2-56ZE,NHS2-1071,Love,Plains and Plateau,kali1308
+NHS2-EVGH,NHS2-1072,Lullaby,Plains and Plateau,kali1308
+NHS2-IPO1,NHS2-1073,Lullaby,Plains and Plateau,kiow1264
+NHS2-WY88,NHS2-1078,Healing,Plains and Plateau,pawn1254
+NHS2-EYBO,NHS2-1079,Love,Plains and Plateau,pawn1254
+NHS2-KBLR,NHS2-1081,Story,Plains and Plateau,pawn1254
+NHS2-8SSJ,NHS2-1083,Dance,Plains and Plateau,siks1238
+NHS2-BX0P,NHS2-1084,Healing,Plains and Plateau,pieg1239
+NHS2-JC95,NHS2-1085,Lullaby,Plains and Plateau,siks1238
+NHS2-9GA2,NHS2-1087,Dance,Polynesia,hawa1245
+NHS2-EXN7,NHS2-1089,Healing,Polynesia,hawa1245
+NHS2-PS37,NHS2-1090,Love,Polynesia,hawa1245
+NHS2-QX2Q,NHS2-1096,Love,Polynesia,maor1246
+NHS2-79XK,NHS2-1097,Love,Polynesia,maor1246
+NHS2-LDPM,NHS2-1098,Love,Polynesia,maor1246
+NHS2-MW5F,NHS2-1100,Love,Polynesia,maor1246
+NHS2-VQLP,NHS2-1101,Love,Polynesia,maor1246
+NHS2-CYTF,NHS2-1103,Love,Polynesia,maor1246
+NHS2-VI5Q,NHS2-1105,Love,Polynesia,maor1246
+NHS2-ZEU0,NHS2-1106,Lullaby,Polynesia,maor1246
+NHS2-LT6Y,NHS2-1107,Lullaby,Polynesia,maor1246
+NHS2-G3HZ,NHS2-1108,Lullaby,Polynesia,maor1246
+NHS2-MEUM,NHS2-1109,Lullaby,Polynesia,maor1246
+NHS2-L4AU,NHS2-1111,Mourning,Polynesia,maor1246
+NHS2-5XFO,NHS2-1112,Mourning,Polynesia,maor1246
+NHS2-NVVR,NHS2-1113,Mourning,Polynesia,maor1246
+NHS2-0KOG,NHS2-1114,Mourning,Polynesia,maor1246
+NHS2-RU8O,NHS2-1115,Mourning,Polynesia,maor1246
+NHS2-5NE5,NHS2-1116,Story,Polynesia,raro1242
+NHS2-VDT8,NHS2-1117,Story,Polynesia,raro1241
+NHS2-BGQZ,NHS2-1120,Work,Polynesia,maor1246
+NHS2-3JUS,NHS2-1121,Work,Polynesia,maor1246
+NHS2-863N,NHS2-1123,Work,Polynesia,maor1246
+NHS2-KVWI,NHS2-1124,Work,Polynesia,maor1246
+NHS2-K9E6,NHS2-1125,Play,Polynesia,niue1239
+NHS2-VIBU,NHS2-1126,Praise,Polynesia,niue1239
+NHS2-GKCY,NHS2-1132,Play,Polynesia,sout2866
+NHS2-IVGT,NHS2-1133,Play,Polynesia,sout2866
+NHS2-6NC7,NHS2-1134,Play,Polynesia,sout2866
+NHS2-8NAB,NHS2-1135,Procession,Polynesia,sout2866
+NHS2-JRP2,NHS2-1140,Healing,Polynesia,samo1305
+NHS2-R06P,NHS2-1142,Lullaby,Polynesia,samo1305
+NHS2-5NO3,NHS2-1143,Lullaby,Polynesia,samo1305
+NHS2-8QYQ,NHS2-1144,Lullaby,Polynesia,samo1305
+NHS2-4RW7,NHS2-1145,Lullaby,Polynesia,samo1305
+NHS2-CP78,NHS2-1146,Lullaby,Polynesia,samo1305
+NHS2-RP29,NHS2-1147,Lullaby,Polynesia,samo1305
+NHS2-V2UK,NHS2-1148,Play,Polynesia,samo1305
+NHS2-445H,NHS2-1152,Praise,Polynesia,samo1305
+NHS2-1BBL,NHS2-1153,Praise,Polynesia,samo1305
+NHS2-VRUD,NHS2-1154,Praise,Polynesia,samo1305
+NHS2-18X6,NHS2-1156,Dance,Polynesia,samo1305
+NHS2-KIYM,NHS2-1160,Dance,Polynesia,tiko1237
+NHS2-JQTW,NHS2-1161,Dance,Polynesia,tiko1237
+NHS2-DHAP,NHS2-1166,Mourning,Polynesia,tiko1237
+NHS2-K16P,NHS2-1168,Play,Melanesia,tiko1237
+NHS2-6TYM,NHS2-1169,Story,Melanesia,tiko1237
+NHS2-MG6Y,NHS2-1173,Dance,Polynesia,tong1325
+NHS2-VXRD,NHS2-1174,Mourning,Polynesia,tong1325
+NHS2-DTDM,NHS2-1175,Play,Polynesia,tong1325
+NHS2-QJ8L,NHS2-1176,Play,Polynesia,tong1325
+NHS2-VZGV,NHS2-1177,Play,Polynesia,tong1325
+NHS2-46KG,NHS2-1180,Lullaby,Scandinavia,dani1285
+NHS2-BX30,NHS2-1181,Praise,Scandinavia,dani1285
+NHS2-VBO3,NHS2-1182,Love,Scandinavia,finn1318
+NHS2-AIGL,NHS2-1183,Mourning,Scandinavia,finn1318
+NHS2-TLT0,NHS2-1185,Lullaby,Scandinavia,icel1247
+NHS2-56NT,NHS2-1186,Story,Scandinavia,icel1247
+NHS2-YQ2F,NHS2-1187,Praise,Scandinavia,icel1247
+NHS2-CP41,NHS2-1190,Love,Scandinavia,kemi1239
+NHS2-M2GB,NHS2-1191,Dance,Scandinavia,norw1258
+NHS2-NOHR,NHS2-1192,Lullaby,Scandinavia,norw1258
+NHS2-YJ7K,NHS2-1193,Lullaby,Scandinavia,norw1258
+NHS2-GT5R,NHS2-1193a,Lullaby,Scandinavia,norw1258
+NHS2-KLEM,NHS2-1194,Mourning,Scandinavia,norw1258
+NHS2-AN4C,NHS2-1195,Story,Scandinavia,norw1258
+NHS2-W3XP,NHS2-1197,Work,Scandinavia,norw1258
+NHS2-Q6FQ,NHS2-1198,Lullaby,Scandinavia,saam1281
+NHS2-PASM,NHS2-1199,Dance,Scandinavia,sout2674
+NHS2-R1O0,NHS2-1200,Dance,Scandinavia,swed1254
+NHS2-NYZE,NHS2-1201,Love,Scandinavia,swed1254
+NHS2-HJD6,NHS2-1202,Play,Scandinavia,swed1254
+NHS2-X9CV,NHS2-1205,Love,South Asia,anga1288
+NHS2-CVSK,NHS2-1206,Love,South Asia,beng1280
+NHS2-VMFK,NHS2-1207,Story,South Asia,beng1280
+NHS2-AGU1,NHS2-1208,Work,South Asia,beng1280
+NHS2-ZMI9,NHS2-1209,Work,South Asia,beng1280
+NHS2-330H,NHS2-1214,Healing,South Asia,bhoj1244
+NHS2-1MOO,NHS2-1216,Story,South Asia,bhoj1244
+NHS2-XMW2,NHS2-1217,Story,South Asia,bhoj1244
+NHS2-YWOB,NHS2-1219,Work,South Asia,hind1269
+NHS2-FSD4,NHS2-1220,Love,South Asia, oriy1255
+NHS2-EMO1,NHS2-1221,Love,South Asia,buru1296
+NHS2-3LYX,NHS2-1223,Love,South Asia,pash1269
+NHS2-IPF3,NHS2-1224,Love,South Asia,chak1266
+NHS2-S7VB,NHS2-1225,Lullaby,South Asia,chak1266
+NHS2-AQU5,NHS2-1226,Story,South Asia,chak1266
+NHS2-G0G2,NHS2-1228,Dance,South Asia,garo1247
+NHS2-6CUN,NHS2-1231,Story,South Asia,hind1269
+NHS2-79FC,NHS2-1232,Story,South Asia,jaun1243
+NHS2-SG98,NHS2-1233,Dance,South Asia,kach1277
+NHS2-GN1C,NHS2-1234,Dance,South Asia,guja1252
+NHS2-QUO9,NHS2-1235,Praise,South Asia,tawa1289
+NHS2-5HCI,NHS2-1238,Praise,South Asia,kota1263
+NHS2-6UVI,NHS2-1242,Dance,South Asia,maha1287
+NHS2-ZP5P,NHS2-1243,Love,South Asia,hima1250
+NHS2-P77G,NHS2-1244,Dance,South Asia,mala1464
+NHS2-JOI6,NHS2-1246,Love,South Asia,mala1464
+NHS2-TFPI,NHS2-1247,Praise,South Asia,mala1464
+NHS2-BJS2,NHS2-1248,Story,South Asia,mala1464
+NHS2-F36Z,NHS2-1249,Story,South Asia,mala1464
+NHS2-B0XT,NHS2-1250,Dance,South Asia,mala1464
+NHS2-1VEN,NHS2-1251,Dance,South Asia,meit1246
+NHS2-9Y3G,NHS2-1252,Praise,South Asia,meit1246
+NHS2-BNQV,NHS2-1253,Lullaby,South Asia,mara1378
+NHS2-5ETJ,NHS2-1255,Love,South Asia,muri1262
+NHS2-USTD,NHS2-1256,Love,South Asia,nepa1254
+NHS2-RDF4,NHS2-1257,Story,South Asia,pash1269
+NHS2-7RR9,NHS2-1258,Lullaby,South Asia,tami1289
+NHS2-AFQQ,NHS2-1262,Dance,South Asia,sora1254
+NHS2-LYTO,NHS2-1263,Story,South Asia,sora1254
+NHS2-AXMQ,NHS2-1264,Healing,South Asia,sora1254
+NHS2-55W8,NHS2-1265,Praise,South Asia,sora1254
+NHS2-L9OE,NHS2-1266,Praise,South Asia,sora1254
+NHS2-J22Q,NHS2-1267,Story,South Asia,sora1254
+NHS2-WXJ5,NHS2-1268,Work,South Asia,sora1254
+NHS2-HHEG,NHS2-1271,Praise,South Asia,sera1259
+NHS2-DKIW,NHS2-1272,Story,South Asia,sera1259
+NHS2-8XAP,NHS2-1275,Lullaby,South Asia,tami1289
+NHS2-OX4P,NHS2-1276,Mourning,South Asia,tami1289
+NHS2-LG9Y,NHS2-1277,Mourning,South Asia,tami1289
+NHS2-4B7D,NHS2-1278,Story,South Asia,telu1262
+NHS2-J76G,NHS2-1279,Work,South Asia,drav1251
+NHS2-UPEJ,NHS2-1280,Work,South Asia,drav1251
+NHS2-TFXV,NHS2-1283,Procession,South Asia,toda1252
+NHS2-DSTK,NHS2-1284,Love,South Asia,west2386
+NHS2-1EJJ,NHS2-1285,Love,South Asia,west2386
+NHS2-JWTI,NHS2-1289,Love,Southeast Asia,bali1278
+NHS2-8D26,NHS2-1290,Love,Southeast Asia,pala1354
+NHS2-LQEP,NHS2-1291,Story,Southeast Asia,pala1354
+NHS2-UYWH,NHS2-1296,Mourning,Southeast Asia,eipo1242
+NHS2-8LLJ,NHS2-1299,Lullaby,Southeast Asia,hanu1241
+NHS2-LA7I,NHS2-1303,Lullaby,Southeast Asia,indo1316
+NHS2-1D5A,NHS2-1304,Love,Southeast Asia,indo1317
+NHS2-JYNI,NHS2-1305,Procession,Southeast Asia,iumi1238
+NHS2-RHD1,NHS2-1306,Play,Southeast Asia,java1254
+NHS2-Q655,NHS2-1307,Story,Southeast Asia,jeha1242
+NHS2-A1WC,NHS2-1308,Procession,Southeast Asia,kamb1320
+NHS2-MTQX,NHS2-1309,Work,Southeast Asia,kamb1320
+NHS2-9GQR,NHS2-1310a,Work,Southeast Asia,kamb1320
+NHS2-D04O,NHS2-1310b,Work,Southeast Asia,kamb1320
+NHS2-NRZX,NHS2-1311,Love,Southeast Asia,kela1258
+NHS2-13QA,NHS2-1312,Mourning,Southeast Asia,kema1243
+NHS2-CJRT,NHS2-1313,Procession,Southeast Asia,kema1243
+NHS2-9W4T,NHS2-1314,Story,Southeast Asia,kema1243
+NHS2-8QLU,NHS2-1317,Work,Southeast Asia,kohi1250
+NHS2-P32P,NHS2-1318,Lullaby,Southeast Asia,laoo1244
+NHS2-I79R,NHS2-1319,Story,Southeast Asia,laoo1244
+NHS2-XIJR,NHS2-1321,Work,Southeast Asia,lioo1240
+NHS2-0BSK,NHS2-1322,Love,Southeast Asia,magu1243
+NHS2-K4B7,NHS2-1323,Love,Southeast Asia,magu1243
+NHS2-51BM,NHS2-1324,Lullaby,Southeast Asia,magu1243
+NHS2-VGRT,NHS2-1326,Lullaby,Southeast Asia,magu1243
+NHS2-TN8J,NHS2-1327,Story,Southeast Asia,magu1243
+NHS2-VEE7,NHS2-1328,Dance,Southeast Asia,maka1311
+NHS2-SNG1,NHS2-1329,Healing,Southeast Asia,jamb1236
+NHS2-TXC2,NHS2-1331,Procession,Southeast Asia,mang1405
+NHS2-V2MG,NHS2-1333,Story,Southeast Asia,mina1268
+NHS2-G8EZ,NHS2-1334,Story,Southeast Asia,mina1268
+NHS2-GP6X,NHS2-1336,Mourning,Southeast Asia,nias1242
+NHS2-1GVP,NHS2-1339,Praise,Southeast Asia,nucl1310
+NHS2-4KKI,NHS2-1343,Healing,Southeast Asia,sout2922
+NHS2-BHB2,NHS2-1344,Dance,Southeast Asia,sout3184
+NHS2-KFAU,NHS2-1345,Healing,Southeast Asia,temi1246
+NHS2-RJC6,NHS2-1346,Healing,Southeast Asia,temi1246
+NHS2-T018,NHS2-1347,Lullaby,Southeast Asia,viet1252
+NHS2-ET5D,NHS2-1348,Work,Southeast Asia,viet1252
+NHS2-UOFC,NHS2-1353,Dance,Southeastern Europe,arom1237
+NHS2-MKSQ,NHS2-1354,Procession,Southeastern Europe,arom1237
+NHS2-WJTO,NHS2-1355,Procession,Southeastern Europe,arom1237
+NHS2-P42P,NHS2-1356,Dance,Southeastern Europe,bulg1262
+NHS2-IMHK,NHS2-1357,Dance,Southeastern Europe,bulg1262
+NHS2-HT2F,NHS2-1359,Mourning,Southeastern Europe,bulg1262
+NHS2-8IBT,NHS2-1360,Praise,Southeastern Europe,bulg1262
+NHS2-3SLN,NHS2-1361,Procession,Southeastern Europe,bulg1262
+NHS2-6HA2,NHS2-1362,Story,Southeastern Europe,bulg1262
+NHS2-MOYD,NHS2-1364,Procession,Southeastern Europe,bulg1262
+NHS2-0R25,NHS2-1365,Story,Southeastern Europe,bulg1262
+NHS2-CG2V,NHS2-1366,Story,Southeastern Europe,bulg1262
+NHS2-11ZR,NHS2-1367,Story,Southeastern Europe,bulg1262
+NHS2-5WIE,NHS2-1368,Work,Southeastern Europe,bulg1262
+NHS2-JLQ7,NHS2-1369,Work,Southeastern Europe,bulg1262
+NHS2-T05D,NHS2-1370,Work,Southeastern Europe,bulg1262
+NHS2-JIPH,NHS2-1371,Work,Southeastern Europe,bulg1262
+NHS2-GQVS,NHS2-1372,Love,Middle East,kurd1259
+NHS2-FUK5,NHS2-1375,Dance,Southeastern Europe,mace1250
+NHS2-F3H4,NHS2-1376,Love,Southeastern Europe,mode1248
+NHS2-ROQE,NHS2-1380,Dance,Southeastern Europe,mode1248
+NHS2-S58Q,NHS2-1381,Dance,Southeastern Europe,mode1248
+NHS2-E0EF,NHS2-1382,Lullaby,Southeastern Europe,mode1248
+NHS2-TRIT,NHS2-1383,Story,Southeastern Europe,mode1248
+NHS2-SIVT,NHS2-1385,Dance,Southeastern Europe,nucl1301
+NHS2-AMLT,NHS2-1387,Healing,Caucasus,nucl1302
+NHS2-HOCY,NHS2-1390,Dance,Southeastern Europe,roma1327
+NHS2-YG87,NHS2-1394,Mourning,Southeastern Europe,roma1327
+NHS2-ALI7,NHS2-1395,Mourning,Southeastern Europe,roma1327
+NHS2-M2TH,NHS2-1396,Mourning,Southeastern Europe,roma1327
+NHS2-4KE5,NHS2-1397,Mourning,Southeastern Europe,roma1327
+NHS2-SDPZ,NHS2-1406,Story,Southeastern Europe,roma1327
+NHS2-CY4T,NHS2-1411,Play,Southeastern Europe,slov1268
+NHS2-9F2W,NHS2-1415,Dance,Southeastern Europe,serb1264
+NHS2-6C8Y,NHS2-1416,Love,Southeastern Europe,croa1245
+NHS2-FSAQ,NHS2-1417,Love,Southeastern Europe,serb1264
+NHS2-IED2,NHS2-1418,Lullaby,Southeastern Europe,bosn1245
+NHS2-7H7E,NHS2-1419,Mourning,Southeastern Europe,serb1264
+NHS2-ZHRT,NHS2-1422,Procession,Southeastern Europe,serb1264
+NHS2-78JU,NHS2-1423,Procession,Southeastern Europe,serb1264
+NHS2-KPUS,NHS2-1430,Work,Southeastern Europe,serb1264
+NHS2-CV77,NHS2-1431,Procession,Southeastern Europe,croa1245
+NHS2-DN12,NHS2-1434,Lullaby,Southeastern Europe,gheg1238
+NHS2-T6S8,NHS2-1436,Praise,Southeastern Europe,tosk1239
+NHS2-W62P,NHS2-1437,Praise,Southeastern Europe,tosk1239
+NHS2-D3XG,NHS2-1439,Praise,Southern Africa,anta1255
+NHS2-5T4A,NHS2-1440,Love,Southern Africa,aush1241
+NHS2-GDCE,NHS2-1443,Healing,Southern Africa,lund1266
+NHS2-XP8A,NHS2-1444,Play,Southern Africa,bemb1257
+NHS2-979H,NHS2-1445,Mourning,Southern Africa,chok1245
+NHS2-AQF0,NHS2-1450,Praise,Southern Africa,here1253
+NHS2-UZLM,NHS2-1453,Healing,Southern Africa,juho1239
+NHS2-LS5V,NHS2-1454,Lullaby,Southern Africa,kara1484
+NHS2-L84K,NHS2-1455,Mourning,Southern Africa,lala1264
+NHS2-I4V5,NHS2-1457,Dance,Southern Africa,lozi1239
+NHS2-MC84,NHS2-1459,Dance,Southern Africa,maha1309
+NHS2-WFE1,NHS2-1464,Healing,Southern Africa,mbuk1240
+NHS2-PEN8,NHS2-1465,Lullaby,Southern Africa,nama1264
+NHS2-OBH8,NHS2-1466,Healing,Southern Africa,naro1249
+NHS2-HKI9,NHS2-1467,Healing,Southern Africa,tshw1239
+NHS2-JFOZ,NHS2-1468,Healing,Southern Africa,naro1249
+NHS2-NI78,NHS2-1469,Mourning,Southern Africa,ngon1269
+NHS2-TW9J,NHS2-1471,Love,Southern Africa,ndon1254
+NHS2-K1GM,NHS2-1472,Dance,Southern Africa,seng1277
+NHS2-RCVU,NHS2-1473,Procession,Southern Africa,nort2795
+NHS2-XAH8,NHS2-1474,Mourning,Southern Africa,nsen1242
+NHS2-R269,NHS2-1475,Work,Southern Africa,nsen1242
+NHS2-7XBW,NHS2-1477,Lullaby,Southern Africa,nyan1308
+NHS2-KR0Z,NHS2-1478,Mourning,Southern Africa,nsen1242
+NHS2-Y6R3,NHS2-1479,Play,Southern Africa,nyan1308
+NHS2-I71D,NHS2-1481,Procession,Southern Africa,nyan1308
+NHS2-Z6NC,NHS2-1482,Lullaby,Southern Africa,nort3233
+NHS2-EOAH,NHS2-1495,Story,Southern Africa,duma1252
+NHS2-SCTO,NHS2-1498,Work,Southern Africa,zezu1238
+NHS2-UJ4Z,NHS2-1499,Lullaby,Southern Africa,sout2807
+NHS2-ZRPA,NHS2-1504,Work,Southern Africa,sout2807
+NHS2-TFM3,NHS2-1506,Lullaby,Southern Africa,swat1243
+NHS2-8FCW,NHS2-1508,Work,Southern Africa,tson1249
+NHS2-C5L4,NHS2-1509,Play,Southern Africa,tswa1253
+NHS2-3IQ4,NHS2-1510,Play,Southern Africa,tswa1253
+NHS2-NPYD,NHS2-1511,Praise,Southern Africa,tswa1253
+NHS2-56CF,NHS2-1512,Praise,Southern Africa,tswa1253
+NHS2-T2OE,NHS2-1513,Play,Southern Africa,tumb1250
+NHS2-H187,NHS2-1514,Story,Southern Africa,tumb1250
+NHS2-WO9S,NHS2-1515a,Play,Southern Africa,vend1245
+NHS2-UO2B,NHS2-1515b,Play,Southern Africa,vend1245
+NHS2-JJPZ,NHS2-1516,Story,Southern Africa,vend1245
+NHS2-NI7X,NHS2-1517,Dance,Southern Africa,xhos1239
+NHS2-4BXQ,NHS2-1519,Love,Southern Africa,xhos1239
+NHS2-8LF0,NHS2-1520,Love,Southern Africa,xhos1239
+NHS2-59RG,NHS2-1522,Lullaby,Southern Africa,xhos1239
+NHS2-PN13,NHS2-1523,Lullaby,Southern Africa,xhos1239
+NHS2-UPIC,NHS2-1526,Praise,Southern Africa,xhos1239
+NHS2-0Q6G,NHS2-1527,Praise,Southern Africa,xhos1239
+NHS2-UELN,NHS2-1528,Procession,Southern Africa,xhos1239
+NHS2-6JVA,NHS2-1530,Work,Southern Africa,xhos1239
+NHS2-42U2,NHS2-1532,Lullaby,Southern Africa,yaoo1241
+NHS2-UF4Y,NHS2-1534,Love,Southern Africa,zulu1248
+NHS2-IO1X,NHS2-1535,Love,Southern Africa,zulu1248
+NHS2-60WA,NHS2-1536,Love,Southern Africa,zulu1248
+NHS2-KAEC,NHS2-1537,Lullaby,Southern Africa,zulu1248
+NHS2-4MJ7,NHS2-1540,Work,Southern Europe,cala1254
+NHS2-7CEW,NHS2-1543,Dance,Southern Europe,napo1241
+NHS2-GNQV,NHS2-1548,Lullaby,Southern Europe,piem1238
+NHS2-W3SC,NHS2-1549,Praise,Southern Europe,emil1243
+NHS2-GBI2,NHS2-1552,Mourning,Southern Europe,port1283
+NHS2-R4RL,NHS2-1553,Praise,Southern Europe,port1283
+NHS2-ERIP,NHS2-1554,Procession,Southern Europe,port1283
+NHS2-0CKA,NHS2-1555,Work,Southern Europe,port1283
+NHS2-6BT9,NHS2-1556,Love,Southern Europe,sard1257
+NHS2-0ZIH,NHS2-1557,Love,Southern Europe,sard1257
+NHS2-AOJA,NHS2-1558,Love,Southern Europe,sard1257
+NHS2-JGOO,NHS2-1559,Praise,Southern Europe,sici1248
+NHS2-XRSU,NHS2-1567,Play,Southern Europe,stan1288
+NHS2-XC4A,NHS2-1568,Play,Southern Europe,stan1288
+NHS2-NQLQ,NHS2-1569,Play,Southern Europe,stan1288
+NHS2-DGOE,NHS2-1573,Love,Southern South America,mapu1245
+NHS2-GAOV,NHS2-1575,Dance,Southern South America,onaa1245
+NHS2-GL6J,NHS2-1577,Healing,Southern South America,onaa1245
+NHS2-SPEE,NHS2-1578,Lullaby,Southern South America,onaa1245
+NHS2-9HLO,NHS2-1579,Mourning,Southern South America,onaa1245
+NHS2-IZJ7,NHS2-1579a,Mourning,Southern South America,onaa1245
+NHS2-B94G,NHS2-1580,Mourning,Southern South America,onaa1245
+NHS2-HWFE,NHS2-1580a,Mourning,Southern South America,onaa1245
+NHS2-VDWK,NHS2-1585,Love,Southern South America,qawa1238
+NHS2-1DCV,NHS2-1586,Love,Southern South America,qawa1238
+NHS2-1I26,NHS2-1587,Lullaby,Southern South America,qawa1238
+NHS2-DI16,NHS2-1588,Play,Southern South America,qawa1238
+NHS2-ZONP,NHS2-1589,Play,Southern South America,qawa1238
+NHS2-AEWX,NHS2-1593,Praise,Southern South America,sout2996
+NHS2-CCP4,NHS2-1594,Praise,Southern South America,sout2996
+NHS2-S48T,NHS2-1595,Procession,Southern South America,sout2996
+NHS2-085Q,NHS2-1596,Procession,Southern South America,sout2996
+NHS2-5B0Y,NHS2-1597,Dance,Southern South America,stan1288
+NHS2-FG2C,NHS2-1598,Lullaby,Southern South America,stan1288
+NHS2-V0ZT,NHS2-1599,Dance,Southern South America,mata1291
+NHS2-ZLK3,NHS2-1600,Dance,Southern South America,mata1291
+NHS2-6IKY,NHS2-1601,Healing,Southern South America,wich1262
+NHS2-KESR,NHS2-1602,Mourning,Southern South America,wich1262
+NHS2-PJDT,NHS2-1603,Mourning,Southern South America,wich1262
+NHS2-PLYB,NHS2-1609,Mourning,Southwest and Basin,hava1248
+NHS2-4EAD,NHS2-1610,Dance,Southwest and Basin,hopi1249
+NHS2-E5T5,NHS2-1611,Lullaby,Southwest and Basin,hopi1249
+NHS2-MQZS,NHS2-1613,Dance,Southwest and Basin,hopi1249
+NHS2-3RY9,NHS2-1617,Work,Southwest and Basin,huic1243
+NHS2-66IN,NHS2-1618,Dance,Southwest and Basin,kere1287
+NHS2-XGAI,NHS2-1619,Dance,Southwest and Basin,kere1287
+NHS2-J5AX,NHS2-1620,Praise,Southwest and Basin,kiow1266
+NHS2-BHQB,NHS2-1621,Lullaby,Plains,kiow1266
+NHS2-8J4L,NHS2-1626,Healing,Southwest and Basin,quec1382
+NHS2-9BBS,NHS2-1627,Lullaby,Caribbean,stan1288
+NHS2-4N10,NHS2-1628,Play,Central Mexico,stan1288
+NHS2-YURR,NHS2-1629,Play,Central Mexico,stan1288
+NHS2-6RXG,NHS2-1630,Play,Central Mexico,stan1288
+NHS2-IY3T,NHS2-1631,Play,Southwest and Basin,stan1288
+NHS2-2NZO,NHS2-1632,Praise,Southwest and Basin,tewa1260
+NHS2-44DS,NHS2-1633,Dance,Southwest and Basin,toho1245
+NHS2-0DNB,NHS2-1635,Dance,Southwest and Basin,toho1245
+NHS2-5W94,NHS2-1637,Story,Southwest and Basin,toho1245
+NHS2-WZ7J,NHS2-1641,Story,Southwest and Basin,toho1245
+NHS2-K39B,NHS2-1642,Story,Southwest and Basin,toho1245
+NHS2-RSEC,NHS2-1644,Lullaby,Southwest and Basin,zuni1245
+NHS2-3MPW,NHS2-1645,Dance,Southwest and Basin,zuni1245
+NHS2-9YBX,NHS2-1646,Dance,Western Africa,akan1250
+NHS2-XRSS,NHS2-1647,Healing,Western Africa,baou1238
+NHS2-NFZO,NHS2-1648,Mourning,Western Africa,akan1250
+NHS2-I3W7,NHS2-1651,Lullaby,Central Africa,bafu1246
+NHS2-NS9J,NHS2-1654,Praise,Western Africa,bulu1251
+NHS2-M2W6,NHS2-1655,Praise,Western Africa,bulu1251
+NHS2-5NN8,NHS2-1656,Story,Western Africa,bulu1251
+NHS2-RVXZ,NHS2-1657,Work,Western Africa,bulu1251
+NHS2-OXV1,NHS2-1658,Love,Western Africa,cent2018
+NHS2-1K35,NHS2-1659,Work,Central Africa,duma1253
+NHS2-08KZ,NHS2-1660,Work,Central Africa,duma1253
+NHS2-QAHO,NHS2-1661,Dance,Western Africa,ewee1241
+NHS2-914A,NHS2-1664,Praise,Western Africa,jola1263
+NHS2-M6X4,NHS2-1665,Procession,Western Africa,jola1263
+NHS2-2UTZ,NHS2-1666,Work,Western Africa,jola1263
+NHS2-SGKE,NHS2-1671,Praise,Western Africa,nucl1347
+NHS2-X86V,NHS2-1674,Lullaby,Western Africa,tama1365
+NHS2-06LY,NHS2-1675,Work,Central Africa,wuzl1236
+NHS2-6ZL9,NHS2-1676,Dance,Western Europe,basq1248
+NHS2-733A,NHS2-1677,Love,Western Europe,basq1248
+NHS2-E2SX,NHS2-1678,Love,Western Europe,basq1248
+NHS2-TBBB,NHS2-1679,Lullaby,Western Europe,basq1248
+NHS2-YLV9,NHS2-1681,Praise,Western Europe,basq1248
+NHS2-J2V9,NHS2-1682,Praise,Western Europe,basq1248
+NHS2-MF7G,NHS2-1683,Story,Western Europe,dutc1256
+NHS2-WGYL,NHS2-1686,Work,Western Europe,dutc1256
+NHS2-LFJR,NHS2-1690,Story,Western Europe,dutc1256
+NHS2-ZAHV,NHS2-1691,Lullaby,Western Europe,dutc1256
+NHS2-R21G,NHS2-1693,Story,Western Europe,dutc1256
+NHS2-QNJC,NHS2-1694,Story,Western Europe,dutc1256
+NHS2-KG5I,NHS2-1695,Story,Western Europe,dutc1256
+NHS2-OAVX,NHS2-1696,Story,Western Europe,dutc1256
+NHS2-RHJB,NHS2-1697,Story,Western Europe,dutc1256
+NHS2-EOJ6,NHS2-1698,Story,Western Europe,dutc1256
+NHS2-SJTH,NHS2-1699,Story,Western Europe,dutc1256
+NHS2-U14O,NHS2-1701,Love,Western Europe,stan1295
+NHS2-V3L7,NHS2-1702,Dance,Western Europe,auve1239
+NHS2-KH0L,NHS2-1703,Dance,Western Europe,auve1239
+NHS2-JDTL,NHS2-1707,Lullaby,Western Europe,stan1290
+NHS2-OU7B,NHS2-1710,Lullaby,Western Europe,stan1290
+NHS2-ZJ3C,NHS2-1713,Procession,Western Europe,stan1290
+NHS2-2PWX,NHS2-1714,Work,Western Europe,berr1239
+NHS2-VP4X,NHS2-1715,Dance,Western Europe,wall1255
+NHS2-OTJS,NHS2-0744,Dance,Maya Area,maya1287
+NHS2-RCXO,NHS2-0528,Praise,East Asia,kore1280
+NHS2-NA1E,NHS2-0643,Healing,Eastern Europe,udmu1245
+NHS2-GSNT,NHS2-1295,Healing,Southeast Asia,eipo1242
+NHS2-G9MC,NHS2-1300,Work,Southeast Asia,hanu1241
+NHS2-WAGM,NHS2-1590,Story,Southern South America,qawa1238
+NHS2-F27V,NHS2-0209,Praise,Caribbean,stan1288
+NHS2-WLMB,NHS2-0210,Praise,Caribbean,stan1288
+NHS2-3DYT,NHS2-0631,Dance,Eastern Europe,latv1249
+NHS2-B7OB,NHS2-0637,Lullaby,Eastern Europe,lith1251
+NHS2-UDQJ,NHS2-0837,Praise,Micronesia,ulit1238
+NHS2-5BUU,NHS2-1052,Praise,Northwestern South America,stan1288
+NHS2-XBJ8,NHS2-1229,Play,South Asia,guja1252
+NHS2-19VX,NHS2-1230,Love,South Asia,hind1269
+NHS2-K5DQ,NHS2-0062,Dance,Arctic and Subarctic,east2534
+NHS2-XOBH,NHS2-0065,Healing,Arctic and Subarctic,east2534
+NHS2-WX18,NHS2-0070,Story,Arctic and Subarctic,east2534
+NHS2-IPI1,NHS2-0071,Lullaby,Arctic and Subarctic,gree1280
+NHS2-8OCR,NHS2-0072,Mourning,Arctic and Subarctic,gree1280
+NHS2-L9T3,NHS2-0073,Play,Arctic and Subarctic,gree1280
+NHS2-FOJU,NHS2-0074,Story,Arctic and Subarctic,gree1280
+NHS2-8MOZ,NHS2-1433,Lullaby,Southeastern Europe,alba1267
+NHS2-EG2U,NHS2-1435,Praise,Southeastern Europe,alba1267
+NHS2-Z178,NHS2-0537,Dance,East Asia,nucl1643
+NHS2-KIWV,NHS2-0131,Dance,Australia,yuul1239
+NHS2-3H55,NHS2-0323,Healing,Central America,sanb1242
+NHS2-7HG1,NHS2-0326,Lullaby,Central America,sanb1242
+NHS2-YCNL,NHS2-0353,Love,Central Andes,cusc1236
+NHS2-Y7FV,NHS2-1302,Dance,Southeast Asia,indo1316
