@@ -114,7 +114,7 @@ Mila Bertolo$^{1,2,3,4,\ast}$, Martynas Snarskis$^{5}$, Thanos Kyritsis$^{5}$, L
 \par\hangindent=1.5em ^3^International Laboratory for Brain, Music, and Sound Research, Department of Psychology, University of Montreal, Montreal, QC H3C 3J7, Canada.
 \par^4^Yale Child Study Center, Yale University, New Haven, CT 06520, USA.
 \par^5^School of Psychology, University of Auckland, Auckland 1010, New Zealand.
-\par^6^Department of Psychology, University of Amsterdam, Amsterdam 020, The Netherlands.
+\par^6^Department of Psychology, University of Amsterdam, Amsterdam 1018WT, The Netherlands.
 \par^7^Department of Communication, University of California, Los Angeles, CA 90095, USA.
 \par^8^Department of Psychology, Princeton University, Princeton, NJ 08540, USA.
 \par^9^Department of Psychology, Harvard University, Cambridge, MA 02138, USA.
@@ -126,10 +126,10 @@ Mila Bertolo$^{1,2,3,4,\ast}$, Martynas Snarskis$^{5}$, Thanos Kyritsis$^{5}$, L
 \par\hangindent=1.5em ^15^Sidney M. Edelstein Center for History and Philosophy of Science, Technology and Medicine, Hebrew University, Jerusalem 91904, Israel.
 \par^16^Department of Psychological Sciences, University of Connecticut, Storrs, CT 06269, USA.
 \par^17^Center for the Ecological Study of Perception & Action, University of Connecticut, Storrs, CT 06269, USA.
-\par^18^Psychology Department, John Jay College, City University of New York, New York City, NY, 10019, USA.
+\par^18^University of Pennsylvania Graduate School of Education, 3700 Walnut Street, Philadelphia, PA, 19104, USA.
 \par^19^University of Ottawa, Faculty of Medicine, Ottawa, ON K1H 8M5, Canada.
 \par^20^Max Planck Institute for the Science of Human History, Jena 07745, Germany.
-\par^21^Department of Anthropology, University of California at Davis, Davis, CA 95616, USA.
+\par^21^Department of Anthropology, University of California, Davis, Davis, CA 95616, USA.
 \setlength\parskip{1em}
 
 \*Corresponding author. E-mails: mila.bertolo@mail.mcgill.ca, sam@auckland.ac.nz
