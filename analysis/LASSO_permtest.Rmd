@@ -1,0 +1,108 @@
+``` {r setup}
+if(!require(pacman)) {
+  message("installing the 'pacman' package")
+  install.packages("pacman")
+} # install packman package if not found
+p_load(
+  here
+)
+
+# filename <- paste(here(),"/writing/NHS2-functions.R",sep="")
+# source(filename,local=TRUE)
+```
+
+``` {r LASSO-4}
+# load lasso 4 data
+filename <- paste("mir4predictions_t-48_b-10_s-25.Rds",sep="")
+mir4pred <- readRDS(paste(here(),"/data/",filename,sep=""))
+# ensemble decision
+mir4ens <- cbind(
+  mir4pred %>% select(song,type),
+  ensamble_pred = as.factor(apply(mir4pred %>% select(-song,-type),1,get_mode))
+  )
+
+acc_lasso4 <- mir4ens %>% accuracy(truth=type, ensamble_pred) %>% pull(.estimate)
+
+
+acc_lasso4 <- mir4ens %>%
+  filter(type=="Dance") %>% 
+  accuracy(truth=type, ensamble_pred) %>% 
+  pull(.estimate)
+
+real_acc <- mir4ens %>% 
+  group_by(type) %>% 
+  accuracy(truth=type, ensamble_pred) %>%
+  select(type,accuracy=.estimate)
+
+# simulate perm tests
+nsim <- 5000
+res <- data.frame(sim=numeric(),type=character(),accuracy=numeric())
+for (i in 1:nsim) {
+  # shuffle the labels
+  perm <- sample(nrow(mir4ens))
+  shuffled <- transform(mir4ens, ensamble_pred=ensamble_pred[perm])
+  
+  acc <- shuffled %>% 
+    group_by(type) %>% 
+    accuracy(truth=type, ensamble_pred) %>%
+    # rename(accuracy=.estimate) %>%
+    select(type,accuracy=.estimate) %>% 
+    mutate(sim=i)
+  
+  res <- merge(res,acc, all=TRUE)
+}
+
+filename <- paste(here(),"/results/LASSO_4_perm.RDS",sep="")
+saveRDS(res,filename)
+
+# calculate percentile
+percentile <- res %>% 
+  mutate(real = case_when(
+    type=="Dance" ~ (real_acc %>% filter(type=="Dance") %>% pull(accuracy)),
+    type=="Lullaby" ~ (real_acc %>% filter(type=="Lullaby") %>% pull(accuracy)),
+    type=="Love" ~ (real_acc %>% filter(type=="Love") %>% pull(accuracy)),
+    type=="Healing" ~ (real_acc %>% filter(type=="Healing") %>% pull(accuracy)),
+    .default=NA
+  )) %>% 
+  mutate(
+    larger = case_when(
+      real > accuracy ~ 1,
+      .default=0
+      )) %>%
+  group_by(type) %>%
+  summarize(prop_larger = mean(larger))
+
+filename <- paste(here(),"/results/LASSO_4_perm-centiles.RDS",sep="")
+saveRDS(percentile,filename)
+
+```
+
+``` {r plot-4accuracy}
+# load perm data
+filename <- paste(here(),"/results/LASSO_4_perm.RDS",sep="")
+res <- readRDS(filename)
+
+# plot
+res %>% 
+  ggplot(aes(y=accuracy,x=type)) + 
+  # geom_point(position=position_jitter(width=.1, height=0))
+  geom_boxplot() +
+  geom_point(data=real_acc, color="red") +
+  theme_classic()
+
+```
+
+``` {r LASSO-10}
+
+
+```
+
+``` {r plot-10accuracy}
+
+
+```
+
+
+
+
+
