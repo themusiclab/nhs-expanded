@@ -7,8 +7,8 @@ p_load(
   here
 )
 
-# filename <- paste(here(),"/writing/NHS2-functions.R",sep="")
-# source(filename,local=TRUE)
+filename <- paste(here(),"/writing/NHS2-functions.R",sep="")
+source(filename,local=TRUE)
 ```
 
 ``` {r LASSO-4}
@@ -20,14 +20,6 @@ mir4ens <- cbind(
   mir4pred %>% select(song,type),
   ensamble_pred = as.factor(apply(mir4pred %>% select(-song,-type),1,get_mode))
   )
-
-acc_lasso4 <- mir4ens %>% accuracy(truth=type, ensamble_pred) %>% pull(.estimate)
-
-
-acc_lasso4 <- mir4ens %>%
-  filter(type=="Dance") %>% 
-  accuracy(truth=type, ensamble_pred) %>% 
-  pull(.estimate)
 
 real_acc <- mir4ens %>% 
   group_by(type) %>% 
@@ -82,8 +74,19 @@ saveRDS(percentile,filename)
 filename <- paste(here(),"/results/LASSO_4_perm.RDS",sep="")
 res <- readRDS(filename)
 
+real_acc <- mir4ens %>% 
+  group_by(type) %>% 
+  accuracy(truth=type, ensamble_pred) %>%
+  select(type,accuracy=.estimate)
+
+type_ord <- real_acc %>% 
+  arrange(-accuracy) %>% 
+  select(type) %>%
+  mutate(n = row_number())
+
 # plot
-res %>% 
+res %>% merge(type_ord) %>%
+  mutate(type = fct_reorder(type, n)) %>%
   ggplot(aes(y=accuracy,x=type)) + 
   # geom_point(position=position_jitter(width=.1, height=0))
   geom_boxplot() +
@@ -93,12 +96,94 @@ res %>%
 ```
 
 ``` {r LASSO-10}
+# load lasso 10 data
+filename <- paste("mir10predictions_t-100_b-10_s-25.Rds",sep="")
+mir10pred <- readRDS(paste(here(),"/data/",filename,sep=""))
 
+# ensemble decision
+mir10ens <- cbind(
+  mir10pred %>% select(song,type),
+  ensamble_pred = as.factor(apply(mir10pred %>% select(-song,-type),1,get_mode))
+  )
+
+real_acc <- mir10ens %>% 
+  group_by(type) %>% 
+  accuracy(truth=type, ensamble_pred) %>%
+  select(type,accuracy=.estimate)
+
+# simulate perm tests
+nsim <- 5000
+res <- data.frame(sim=numeric(),type=character(),accuracy=numeric())
+for (i in 1:nsim) {
+  # shuffle the labels
+  perm <- sample(nrow(mir10ens))
+  shuffled <- transform(mir10ens, ensamble_pred=ensamble_pred[perm])
+  
+  acc <- shuffled %>% 
+    group_by(type) %>% 
+    accuracy(truth=type, ensamble_pred) %>%
+    # rename(accuracy=.estimate) %>%
+    select(type,accuracy=.estimate) %>% 
+    mutate(sim=i)
+  
+  res <- merge(res,acc, all=TRUE)
+}
+
+filename <- paste(here(),"/results/LASSO_10_perm.RDS",sep="")
+saveRDS(res,filename)
+
+# calculate percentile
+percentile <- res %>% 
+  mutate(real = case_when(
+    type=="Dance" ~ (real_acc %>% filter(type=="Dance") %>% pull(accuracy)),
+    type=="Lullaby" ~ (real_acc %>% filter(type=="Lullaby") %>% pull(accuracy)),
+    type=="Love" ~ (real_acc %>% filter(type=="Love") %>% pull(accuracy)),
+    type=="Healing" ~ (real_acc %>% filter(type=="Healing") %>% pull(accuracy)),
+    type=="Play" ~ (real_acc %>% filter(type=="Play") %>% pull(accuracy)),
+    type=="Story" ~ (real_acc %>% filter(type=="Story") %>% pull(accuracy)),
+    type=="Work" ~ (real_acc %>% filter(type=="Work") %>% pull(accuracy)),
+    type=="Praise" ~ (real_acc %>% filter(type=="Praise") %>% pull(accuracy)),
+    type=="Procession" ~ (real_acc %>% filter(type=="Procession") %>% pull(accuracy)),
+    type=="Mourning" ~ (real_acc %>% filter(type=="Mourning") %>% pull(accuracy)),
+    .default=NA
+  )) %>% 
+  mutate(
+    larger = case_when(
+      real > accuracy ~ 1,
+      .default=0
+      )) %>%
+  group_by(type) %>%
+  summarize(prop_larger = mean(larger))
+
+filename <- paste(here(),"/results/LASSO_10_perm-centiles.RDS",sep="")
+saveRDS(percentile,filename)
 
 ```
 
 ``` {r plot-10accuracy}
+# load perm data
+# filename <- paste(here(),"/results/LASSO_10_perm.RDS",sep="")
+# res <- readRDS(filename)
 
+real_acc <- mir10ens %>% 
+  group_by(type) %>% 
+  accuracy(truth=type, ensamble_pred) %>%
+  select(type,accuracy=.estimate)
+
+type_ord <- real_acc %>% 
+  arrange(-accuracy) %>% 
+  select(type) %>%
+  mutate(n = row_number())
+
+# plot
+res %>% merge(type_ord) %>%
+  mutate(type = fct_reorder(type, n)) %>%
+  ggplot(aes(y=accuracy,x=type)) + 
+  # geom_point(position=position_jitter(width=.1, height=0))
+  geom_boxplot() +
+  geom_point(data=real_acc, color="red") +
+  theme_classic()
+  
 
 ```
 
