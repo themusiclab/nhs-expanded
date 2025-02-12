@@ -8,6 +8,17 @@ source(paste(here(),"/writing/NHS2-functions.R",sep=""),local=TRUE)
 filename <- paste("mir4predictions_t-48_b-10_s-25.Rds",sep="")
 mir4pred <- readRDS(paste(here(),"/data/",filename,sep=""))
 
+# lasso 4 sig
+filename <- paste(here(),"/results/LASSO_4_perm-centiles.RDS",sep="")
+pval4 <- readRDS(filename) %>% 
+  mutate(p = 1-prop_larger) %>%
+  mutate(star = case_when(
+    p < .005~ "***",
+    p < .01 ~ "**",
+    p < .05 ~ "*",
+    .default=""
+  ))
+
 # ensemble decision
 mir4ens <- cbind(
   mir4pred %>% select(song,type),
@@ -83,11 +94,17 @@ l4_legend <- get_legend(gg_confusion4)
 gg_confusion4 <- gg_confusion4 + theme(legend.position = "none")
 
 dfig4 <- dprime4 %>% 
+  mutate(sig = case_when(
+    actual=="Dance" ~ (pval4 %>% filter(type=="Dance") %>% pull(star)),
+    actual=="Lullaby" ~ (pval4 %>% filter(type=="Lullaby") %>% pull(star)),
+    actual=="Healing" ~ (pval4 %>% filter(type=="Healing") %>% pull(star)),
+    actual=="Love" ~ (pval4 %>% filter(type=="Love") %>% pull(star)),
+    .default = ""
+  )) %>%
   mutate(actual = factor(actual, levels = ylvl)) %>%
   ggplot(aes(y=actual)) +
-  geom_text(aes(label=round(d,digits=2), x=.1), size=4,
-            label.padding = unit(2,"lines"),
-            fill="white") +
+  geom_text(aes(label=round(d,digits=2), x=.1), size=4) +
+  geom_text(aes(label=sig, x=1), size=4) + 
   theme_void() + 
   labs(x="d'") +
   theme(axis.title.x = element_text()) +
@@ -108,6 +125,17 @@ plot_lasso4 <- gg_confusion4 + inset_element(mfig4,l=0, b=-.35,r=1,t=.07) #+ dfi
 filename <- paste("mir10predictions_t-100_b-10_s-25.Rds",sep="")
 #paste("mir10predictions_t-",100,"_b-",1000,".Rds",sep="")
 mir10pred <- readRDS(paste(here(),"/data/",filename,sep=""))
+
+# lasso 4 sig
+filename <- paste(here(),"/results/LASSO_10_perm-centiles.RDS",sep="")
+pval10 <- readRDS(filename) %>% 
+  mutate(p = 1-prop_larger) %>%
+  mutate(star = case_when(
+    p < .005~ "***",
+    p < .01 ~ "**",
+    p < .05 ~ "*",
+    .default=""
+  ))
 
 # ensemble decision
 mir10ens <- cbind(
@@ -185,10 +213,23 @@ l10_legend <- cowplot::get_legend(gg_confusion10)
 gg_confusion10 <- gg_confusion10 + theme(legend.position="none")
 
 dfig10 <- dprime10 %>% 
+  mutate(sig = case_when(
+    actual=="Dance" ~ (pval10 %>% filter(type=="Dance") %>% pull(star)),
+    actual=="Lullaby" ~ (pval10 %>% filter(type=="Lullaby") %>% pull(star)),
+    actual=="Healing" ~ (pval10 %>% filter(type=="Healing") %>% pull(star)),
+    actual=="Love" ~ (pval10 %>% filter(type=="Love") %>% pull(star)),
+    actual=="Praise" ~ (pval10 %>% filter(type=="Praise") %>% pull(star)),
+    actual=="Play" ~ (pval10 %>% filter(type=="Play") %>% pull(star)),
+    actual=="Mourning" ~ (pval10 %>% filter(type=="Mourning") %>% pull(star)),
+    actual=="Story" ~ (pval10 %>% filter(type=="Story") %>% pull(star)),
+    actual=="Procession" ~ (pval10 %>% filter(type=="Procession") %>% pull(star)),
+    actual=="Work" ~ (pval10 %>% filter(type=="Work") %>% pull(star)),
+    .default = ""
+  )) %>%
   mutate(actual = factor(actual, levels = ylvl)) %>%
   ggplot(aes(y=actual)) +
-  geom_text(aes(label=round(d,digits=2), x=.1), size=4,
-            label.padding = unit(.6,"lines")) +
+  geom_text(aes(label=paste(round(d,digits=2),sep=""), x=.1), size=4) +
+  geom_text(aes(label=sig, x=1), size=4) +
   theme_void() + 
   labs(x="") +
   theme(axis.title.x = element_text()) +
@@ -211,7 +252,7 @@ lasso_plot_full <- plot_lasso4 + dfig4 + l4_legend +#plot_spacer() +
   plot_lasso10 + dfig10 + l10_legend + #plot_spacer() + 
   plot_layout(ncol=3, 
               heights=unit(c(4,-.1,10),c('cm','cm')), 
-              widths=c(.9,.1, .15),
+              widths=c(.9,.15, .1),
               guide="collect") +
   # inset_element(l10_legend, l=1.5,r=0,t=0,b=1.9) + 
   plot_annotation(tag_levels = list(c('A','','','','B')))
