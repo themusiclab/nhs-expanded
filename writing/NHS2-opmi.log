@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2021) (preloaded format=pdflatex 2021.12.7)  6 FEB 2025 15:38
+This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2021) (preloaded format=pdflatex 2021.12.7)  12 FEB 2025 17:39
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -794,54 +794,53 @@ Package pdftex.def Info: ../viz/nhs2-methods-flowchart.png  used on input line
 <../viz/Figure2_largerTrees.png, id=124, 578.16pt x 578.16pt>
 File: ../viz/Figure2_largerTrees.png Graphic file (type png)
 <use ../viz/Figure2_largerTrees.png>
-Package pdftex.def Info: ../viz/Figure2_largerTrees.png  used on input line 554
+Package pdftex.def Info: ../viz/Figure2_largerTrees.png  used on input line 549
 .
 (pdftex.def)             Requested size: 469.75385pt x 469.75385pt.
-[5] [6 <../viz/Figure2_largerTrees.png>]
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 5
-68.
+63.
 (/usr/local/texlive/2021/texmf-dist/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
+) [5] [6 <../viz/Figure2_largerTrees.png>]
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 6
-14.
+10.
 (/usr/local/texlive/2021/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) [7]
 <../viz/Figure3.png, id=200, 505.89pt x 578.16pt>
 File: ../viz/Figure3.png Graphic file (type png)
 <use ../viz/Figure3.png>
-Package pdftex.def Info: ../viz/Figure3.png  used on input line 710.
+Package pdftex.def Info: ../viz/Figure3.png  used on input line 706.
 (pdftex.def)             Requested size: 469.76265pt x 536.87161pt.
 
-LaTeX Warning: Float too large for page by 4.4416pt on input line 711.
+LaTeX Warning: Float too large for page by 28.4416pt on input line 707.
 
 [8] [9 <../viz/Figure3.png>]
-<../viz/Figure4.png, id=255, 650.43pt x 289.08pt>
+<../viz/Figure4.png, id=256, 794.97pt x 578.16pt>
 File: ../viz/Figure4.png Graphic file (type png)
 <use ../viz/Figure4.png>
-Package pdftex.def Info: ../viz/Figure4.png  used on input line 791.
-(pdftex.def)             Requested size: 469.76817pt x 208.78584pt.
-<../viz/Figure5.png, id=256, 794.97pt x 578.16pt>
+Package pdftex.def Info: ../viz/Figure4.png  used on input line 789.
+(pdftex.def)             Requested size: 469.76819pt x 341.64958pt.
+<../viz/Figure5.png, id=257, 650.43pt x 289.08pt>
 File: ../viz/Figure5.png Graphic file (type png)
 <use ../viz/Figure5.png>
-Package pdftex.def Info: ../viz/Figure5.png  used on input line 799.
-(pdftex.def)             Requested size: 469.76819pt x 341.64958pt.
+Package pdftex.def Info: ../viz/Figure5.png  used on input line 794.
+(pdftex.def)             Requested size: 469.76817pt x 208.78584pt.
 [10] [11 <../viz/Figure4.png>] [12 <../viz/Figure5.png>] [13] [14] [15] [16] [1
 7] [18] [19] (./NHS2-opmi.aux) ) 
 Here is how much of TeX's memory you used:
  17278 strings out of 478994
- 264327 string characters out of 5858184
- 684458 words of memory out of 5000000
+ 264329 string characters out of 5858184
+ 686460 words of memory out of 5000000
  34041 multiletter control sequences out of 15000+600000
- 480881 words of font info for 198 fonts, out of 8000000 for 9000
+ 480917 words of font info for 198 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  85i,11n,88p,1921b,428s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/local/texlive/2021/texmf-dist/fonts/enc/d
-vips/lm/lm-ts1.enc}{/usr/local/texlive/2021/texmf-dist/fonts/enc/dvips/lm/lm-rm
-.enc}{/usr/local/texlive/2021/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/usr
-/local/texlive/2021/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{/usr/local/texlive
-/2021/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}</usr/local/texlive/2021/texm
+vips/lm/lm-mathsy.enc}{/usr/local/texlive/2021/texmf-dist/fonts/enc/dvips/lm/lm
+-ts1.enc}{/usr/local/texlive/2021/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/usr
+/local/texlive/2021/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/usr/local/tex
+live/2021/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}</usr/local/texlive/2021/texm
 f-dist/fonts/type1/public/lm/lmbx10.pfb></usr/local/texlive/2021/texmf-dist/fon
 ts/type1/public/lm/lmbx12.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/p
 ublic/lm/lmmi10.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/l
@@ -851,11 +850,12 @@ xlive/2021/texmf-dist/fonts/type1/public/lm/lmr7.pfb></usr/local/texlive/2021/t
 exmf-dist/fonts/type1/public/lm/lmr8.pfb></usr/local/texlive/2021/texmf-dist/fo
 nts/type1/public/lm/lmri10.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/
 public/lm/lmss8.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/l
-msy7.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/lmtt10.pfb>
-Output written on NHS2-opmi.pdf (19 pages, 2821840 bytes).
+msy10.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/lmsy7.pfb><
+/usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/lmtt10.pfb>
+Output written on NHS2-opmi.pdf (19 pages, 2828455 bytes).
 PDF statistics:
- 589 PDF objects out of 1000 (max. 8388607)
- 543 compressed objects within 6 object streams
+ 595 PDF objects out of 1000 (max. 8388607)
+ 548 compressed objects within 6 object streams
  122 named destinations out of 1000 (max. 500000)
  43154 words of extra memory for PDF output out of 51595 (max. 10000000)
 
