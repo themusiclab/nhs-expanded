@@ -330,7 +330,7 @@ CDE
 "
 fig4 <- A + B + C + D + legend +
   plot_layout(design=layout, heights = c(1,1.5), widths=c(1,1,.5)) +
-  plot_annotation(tag_levels = list(c('A','B','C','D')))
+  plot_annotation(tag_levels = list(c('A','C','B','D')))
 
 filename <- paste(here(),"/viz/Figure5.png",sep="")
 ggsave(filename,fig4,width=9,height=4)
