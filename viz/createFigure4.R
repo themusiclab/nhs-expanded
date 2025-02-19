@@ -115,8 +115,8 @@ plot_fig5 <- function(af, df, ie_tree, an_tree, ac_tree, song_min) {
     geom_vline(xintercept = 0,color="#bbbbbb",linetype="dashed") +
     facet_grid(rows=vars(reorder(family_name,-n_val)), switch="y") +
     theme_classic() +
-    scale_color_manual(values=c("#6f9acc","#44bb74")) + 
-    scale_fill_manual(values=c("#6f9acc","#44bb74")) +
+    scale_color_manual(values=c("#44bb74","#6f9acc"), breaks=c("Lullaby","Dance")) + 
+    scale_fill_manual(values=c("#44bb74","#6f9acc"), breaks=c("Lullaby","Dance")) +
     theme(
       strip.text.y.left = element_text(angle = 0),
       strip.background = element_rect(fill="#ffffff", colour="#ffffff"),
@@ -126,7 +126,8 @@ plot_fig5 <- function(af, df, ie_tree, an_tree, ac_tree, song_min) {
       axis.text.y = element_blank(),
       axis.text.x = element_blank(),
       axis.ticks.y = element_blank(),
-      panel.grid = element_blank()
+      panel.grid = element_blank(),
+      legend.position = "top"
     ) +
     labs(y="Deep Sample", x="", color="Behavior", fill="Behavior") +
     lims(x=lims,y=c(-1,1.4))
@@ -195,11 +196,11 @@ plot_fig5 <- function(af, df, ie_tree, an_tree, ac_tree, song_min) {
   # ie
   ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Dance") %>% rename(af="feature"), af)
   plot_ie_dance <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
-    labs(y="Indo-European (Dance)", color="Spectral Entropy Mean")
+    labs(y="Indo-European (Dance)", color="Spectral\nEntropy\nMean")
   
   ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Lullaby") %>% rename(af="feature"), af)
   plot_ie_lull <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
-    labs(y="Indo-European (Lullaby)", color="Spectral Entropy Mean")
+    labs(y="Indo-European (Lullaby)", color="Spectral\nEntropy\nMean")
   
   # ie_df <- prop_af_tree(ie_subtree, df %>% filter(type=="Play") %>% rename(af="feature"), af)
   # plot_ie_play <- plot_af_tree(ie_subtree, ie_df, af, family="ie", lims) +
@@ -236,11 +237,11 @@ plot_fig5 <- function(af, df, ie_tree, an_tree, ac_tree, song_min) {
   # an
   an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Dance") %>% rename(af="feature"), af)
   plot_an_dance <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
-    labs(y="Austronesian (Dance)", color="Spectral Entropy Mean")
+    labs(y="Austronesian (Dance)", color="Spectral\nEntropy\nMean")
   
   an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Lullaby") %>% rename(af="feature"), af)
   plot_an_lull <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
-    labs(y="Austronesian (Lullaby)", color="Spectral Entropy Mean")
+    labs(y="Austronesian (Lullaby)", color="Spectral\nEntropy\nMean")
   
   # an_df <- prop_af_tree(an_subtree, df %>% filter(type=="Play") %>% rename(af="feature"), af)
   # plot_an_play <- plot_af_tree(an_subtree, an_df, af, family="an", lims) +
@@ -277,11 +278,11 @@ plot_fig5 <- function(af, df, ie_tree, an_tree, ac_tree, song_min) {
   # ac
   ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Dance") %>% rename(af="feature"), af)
   plot_ac_dance <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
-    labs(y="Atlantic-Congo (Dance)", color="Spectral Entropy Mean")
+    labs(y="Atlantic-Congo (Dance)", color="Spectral\nEntropy\nMean") 
   
   ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Lullaby") %>% rename(af="feature"), af)
   plot_ac_lull <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
-    labs(y="Atlantic-Congo (Lullaby)", color="Spectral Entropy Mean")
+    labs(y="Atlantic-Congo (Lullaby)", color="Spectral\nEntropy\nMean")
   
   # ac_df <- prop_af_tree(ac_subtree, df %>% filter(type=="Play") %>% rename(af="feature"), af)
   # plot_ac_play <- plot_af_tree(ac_subtree, ac_df, af, family="ac", lims) +
@@ -316,46 +317,53 @@ plot_fig5 <- function(af, df, ie_tree, an_tree, ac_tree, song_min) {
   #   labs(y="Atlantic-Congo (Story)", color=af)
   
   # create full plot
-  # tree_plot <- 
-  #   # ie
-  #   plot_ie_dance + plot_ie_lull + plot_ie_play + 
-  #   plot_ie_proc + plot_ie_praise + plot_ie_heal + 
-  #   plot_ie_love + plot_ie_work + plot_ie_mourn + 
-  #   plot_ie_story + 
-  #   # an
-  #   plot_an_dance + plot_an_lull + plot_an_play + 
-  #   plot_an_proc + plot_an_praise + plot_an_heal + 
-  #   plot_an_love + plot_an_work + plot_an_mourn + 
-  #   plot_an_story + 
-  #   # ac
-  #   plot_ac_dance + plot_ac_lull + plot_ac_play + 
-  #   plot_ac_proc + plot_ac_praise + plot_ac_heal + 
-  #   plot_ac_love + plot_ac_work + plot_ac_mourn + 
-  #   plot_ac_story + 
-  #   plot_layout(nrow=3,guides="collect")
-  
   scatter_plot <- splot1 + splot2den + splot2 + 
     plot_layout(nrow=3, heights=c(2.5,.3,4),guide="collect")
   
+  layout_small <- "
+  AB
+  CD
+  CD
+  EF
+  "
   small_tree_plot <- 
     plot_ie_dance + plot_ie_lull +
     plot_an_dance + plot_an_lull +
     plot_ac_dance + plot_ac_lull +
-    plot_layout(nrow=3,guide="collect")
+    plot_layout(nrow=3,guide="collect",design=layout_small,
+                heights=c(1,.2,.8,1),widths=c(1,1))
   
+  ## previously
+  # ADE
+  # BFG
+  # CFG
+  # CHI
   layout <- "
-  ADE
-  BFG
-  CFG
-  CHI
+  A
+  B
+  C
+  C
   "
-  final_plot <- 
+  left_side <- 
     splot1 + splot2den + splot2 + 
-    plot_ie_dance + plot_ie_lull +
-    plot_an_dance + plot_an_lull +
-    plot_ac_dance + plot_ac_lull +
-    plot_layout(design=layout,guide="collect",heights=c(1,.2,.8,1), widths=c(2,1,1)) +
-    plot_annotation(tag_levels = list(c('A','','B','C','','','','')))
+    plot_layout(design=layout,heights=c(1,.2,.8,1),guides="collect")
+  
+  final_layout <- "
+  AD
+  BD
+  CD
+  CD
+  "
+  final_plot <-
+    left_side + small_tree_plot +
+    plot_layout(design=final_layout,guides="keep",widths=c(1,1.1)) +
+    plot_annotation(tag_levels = list(c('A','','B','C')))
+    # splot1 + splot2den + splot2 + 
+    # plot_ie_dance + plot_ie_lull +
+    # plot_an_dance + plot_an_lull +
+    # plot_ac_dance + plot_ac_lull +
+    # plot_layout(design=layout,heights=c(1,.2,.8,1), widths=c(2,1,1)) +
+    # plot_annotation(tag_levels = list(c('A','','B','C','','','','')))
   
   return(final_plot)
 }
