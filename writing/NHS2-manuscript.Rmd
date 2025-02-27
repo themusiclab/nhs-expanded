@@ -69,7 +69,7 @@ p_load(
 )
 
 # load helper functions
-source("NHS2-functions.R",local=TRUE)
+source(paste(here(),"/analysis/NHS2-functions.R",sep=""),local=TRUE)
 ```
 
 ``` {r in-text-variables}
