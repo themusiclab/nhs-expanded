@@ -1,0 +1,403 @@
+---
+bibliography: themusiclab.bib
+csl: apa-auto_cofirsts.csl
+header-includes:
+- \usepackage[left]{lineno}
+- \usepackage{ragged2e}
+- \usepackage{caption}
+- \usepackage{longtable}
+- \usepackage[labelformat = empty]{caption}
+- \usepackage{afterpage}
+- \usepackage{fontenc}
+- \usepackage{soul}
+- \usepackage{xcolor}
+- \usepackage[symbol]{footmisc}
+- \usepackage{numprint}
+- \usepackage{lineno}
+- \usepackage{hanging}
+- \npthousandsep{,}
+- \definecolor{bleu}{HTML}{2200cc}
+- \renewcommand{\thefootnote}{\fnsymbol{footnote}}
+notes-after-punctuation: false
+urlcolor: bleu
+linkcolor: bleu
+link-citations: true
+output:
+  pdf_document:
+    number_sections: true
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, results = FALSE, fig.pos='p')
+
+### WARNING: if you do not have the 'ggtreeExtra' library installed ############
+###    you must un-comment and run the following two lines of code   ###########
+###    (ggtreeExtra is not managed by CRAN so is installed manually) ###########
+#
+# install.packages("BiocManager")
+# BiocManager::install("ggtreeExtra")
+#
+### n.b., ggtreeExtra can take quite awhile to install! ########################
+
+if(!require(pacman)) {
+  message("installing the 'pacman' package")
+  install.packages("pacman")
+} # install packman package if not found
+library(pacman)
+p_load(
+  ape,
+  brms,
+  broom.mixed,
+  cowplot,
+  effectsize,
+  ggpubr,
+  ggtree,
+  ggtreeExtra,
+  glmnet,
+  here,
+  janitor,
+  kableExtra,
+  knitr,
+  patchwork,
+  png,
+  sf,
+  stringi,
+  tidymodels,
+  tidyverse,
+  treeio
+)
+
+# load helper functions
+source("NHS2-functions.R",local=TRUE)
+```
+
+``` {r in-text-variables}
+## Load and set veriables used in text
+# Lasso-4 accuracy
+# filename <- paste("mir4predictions_t-",49,"_b-",1000,".Rds",sep="")
+filename <- paste("mir4predictions_t-48_b-10_s-25.Rds",sep="")
+mir4pred <- readRDS(paste(here(),"/data/",filename,sep=""))
+# ensemble decision
+mir4ens <- cbind(
+  mir4pred %>% select(song,type),
+  ensamble_pred = as.factor(apply(mir4pred %>% select(-song,-type),1,get_mode))
+  )
+acc_lasso4 <- mir4ens %>% accuracy(truth=type, ensamble_pred) %>% pull(.estimate)
+
+# Lasso-10 accuracy
+filename <- paste("mir10predictions_t-100_b-10_s-25.Rds",sep="")
+mir10pred <- readRDS(paste(here(),"/data/",filename,sep=""))
+# ensemble decision
+mir10ens <- cbind(
+  mir10pred %>% select(song,type),
+  ensamble_pred = as.factor(apply(mir10pred %>% select(-song,-type),1,get_mode))#, x
+  )
+acc_lasso10 <- mir10ens %>% accuracy(truth=type, ensamble_pred) %>% pull(.estimate)
+```
+
+\vspace*{2mm}
+
+\LARGE
+\textbf{The Expanded Natural History of Song Discography, a global corpus of vocal music}
+
+\vspace*{4mm}
+\normalsize
+Mila Bertolo$^{1,2,3,4,\ast}$, Martynas Snarskis$^{5}$, Thanos Kyritsis$^{5}$, Lidya Yurdum$^{4,5,6}$, Constance M. Bainbridge$^{7}$, S. Atwood$^{8}$, Courtney B. Hilton$^{5}$, Anya Keomurjian$^{9}$, Judy S. Lee$^{9}$, Alex Mackiel$^{10}$, Vanessa Mak$^{11}$, Mijoo Shin$^{12}$, Alma Bitran$^{13}$, Dor Shilton$^{14,15}$, Lana Delasanta$^{16,17}$, Hang (Heather) Do$^{18}$, Jenna Lang$^{9}$, Tenaaz Irani$^{19}$, Jayanthiny Kangatharan$^{9}$, Kevin Lafleur$^{9}$, Nashua Malko$^{9}$, Quentin D. Atkinson$^{5,20}$, Manvir Singh$^{21}$, and Samuel A. Mehr$^{3,4,5,\ast}$  
+
+\bigskip
+
+\footnotesize
+\setlength\parskip{0em}
+\par^1^Integrated Program in Neuroscience, McGill University, Montreal, QC H1A 2B4, Canada.
+\par^2^Centre for Research on Brain, Language, and Music, Quebec, QC H3G 2A8, Canada.
+\par\hangindent=1.5em ^3^International Laboratory for Brain, Music, and Sound Research, Department of Psychology, University of Montreal, Montreal, QC H3C 3J7, Canada.
+\par^4^Yale Child Study Center, Yale University, New Haven, CT 06520, USA.
+\par^5^School of Psychology, University of Auckland, Auckland 1010, New Zealand.
+\par^6^Department of Psychology, University of Amsterdam, Amsterdam 1018WT, The Netherlands.
+\par^7^Department of Communication, University of California, Los Angeles, CA 90095, USA.
+\par^8^Department of Psychology, Princeton University, Princeton, NJ 08540, USA.
+\par^9^Department of Psychology, Harvard University, Cambridge, MA 02138, USA.
+\par^10^Department of Psychology, University of Chicago, Chicago, IL 60637, USA.
+\par^11^Department of Psychology, University of British Columbia, Vancouver, BC V6T 1Z4, Canada.
+\par^12^Department of Government, Harvard University, Cambridge, MA 02138, USA.
+\par^13^Department of Clinical Psychology, Rutgers, The State University of New Jersey, Newark, NJ 07102, United States.
+\par^14^Cohn Institute for the History and Philosophy of Science and Ideas, Tel Aviv University, Ramat Aviv 6997801, Israel.
+\par\hangindent=1.5em ^15^Sidney M. Edelstein Center for History and Philosophy of Science, Technology and Medicine, Hebrew University, Jerusalem 91904, Israel.
+\par^16^Department of Psychological Sciences, University of Connecticut, Storrs, CT 06269, USA.
+\par^17^Center for the Ecological Study of Perception & Action, University of Connecticut, Storrs, CT 06269, USA.
+\par^18^University of Pennsylvania Graduate School of Education, 3700 Walnut Street, Philadelphia, PA, 19104, USA.
+\par^19^University of Ottawa, Faculty of Medicine, Ottawa, ON K1H 8M5, Canada.
+\par^20^Max Planck Institute for the Science of Human History, Jena 07745, Germany.
+\par^21^Department of Anthropology, University of California, Davis, Davis, CA 95616, USA.
+\setlength\parskip{1em}
+
+\*Corresponding author. E-mails: mila.bertolo@mail.mcgill.ca, sam@auckland.ac.nz
+
+\vspace*{4mm}
+
+\normalsize
+
+```{r load-corpus}
+# NHS2 summary stats
+nhs2 <- read.csv('../data/metadata.csv', skip = 0, header = TRUE)
+
+# load glottolog and add family_id
+glog <- read.csv('../data/languoidGlottolog.csv', skip = 0, header = TRUE)
+colnames(glog)[colnames(glog)=='id'] <- 'glottocode'
+nhs2 <- merge(nhs2, glog[c('glottocode','family_id','latitude','longitude')])
+rm(glog)
+
+# load audio feature data
+audio_feats_med <- read.csv('../data/audio_Extraction_raw_median_all.csv', skip = 0, header = TRUE)
+audio_feats <- audio_feats_med[!audio_feats_med$song=="",]
+
+# merge metadata with audio features
+audio_data <- merge(nhs2, audio_feats, by.x="song")
+
+# load language tree
+global_tree <- read.nexus("../data/global-language-tree-MCC-labelled.tree")
+# global_tree_ogname <- global_tree
+
+# edit tree labels to only show glottocode
+labels <- global_tree$tip.label
+new_labels <- str_extract(labels, '^[a-z]{4}[0-9]{4}')
+global_tree$tip.label <- new_labels
+
+num_wide_families <- nhs2 %>% filter(!family_id %in% c('aust1307', 'atla1278', 'indo1319'), type %in% c('Dance','Lullaby')) %>% pull(family_id) %>% unique() %>% length()
+```
+
+## Abstract {-}
+
+A comprehensive cognitive science requires broad sampling of human behavior to justify general inferences about the mind. For example, the field of psycholinguistics relies on a rich history of comparative study, with many available resources that systematically document many languages. Surprisingly, despite a longstanding interest in questions of universality and diversity, the psychology of music has few such resources. Here, we report the *Expanded Natural History of Song Discography*, an open-access corpus of vocal music (*n* = `r nhs2$song %>% length()` song excerpts), with accompanying metadata detailing each song's region of origin, language (of `r nhs2$glottocode %>% unique() %>% length()` languages represented here), and one of 10 behavioral contexts (e.g., work, storytelling, mourning, lullaby, dance). The corpus is designed to sample both broadly, with a large cross-section of societies and languages; and deeply, with many songs representing three well-studied language families (Atlantic-Congo, Austronesian, and Indo-European). This design facilitates direct comparison of musical and vocal features across cultures, principled approaches to sampling stimuli for experiments, and evaluation of models of the cultural evolution of song. In this paper we describe the corpus and provide two proofs of concept, demonstrating its utility. We show that (1) the acoustical forms of songs are predictive of their behavioral contexts, including in previously unstudied contexts (e.g., children's play songs); and (2) similarities in acoustic content of songs across cultures are predictable, in part, by the relatedness of those cultures.
+
+\clearpage
+\linenumbers
+
+# Introduction 
+
+Investigating music across contexts and cultures is essential for understanding the interacting biological and cultural underpinnings of the human capacity for music. Findings of universality suggest what characteristics of musicality are likely to reflect basic aspects of the human music phenotype. For example, the mutual intelligibility of music across cultures [@Yurdum2023; @Hilton2022; @Singh2023] and early psychophysiological responses to culturally unfamiliar music in infancy [@Bainbridge2021] support predictions of some adaptive functions of musicality in the domain of communication [e.g., @Mehr2021; @Trehub2001a]. Findings of diversity suggest what characteristics of musicality are molded by cultural forces and in what ways. For instance, cross-cultural variability in preferences for consonance over dissonance [@McDermott2016] suggest mechanisms of cultural evolution may shape musical aesthetics. Moreover, differences in the propensity to match pitch across octaves [@Jacoby2019] and effects of tonal language experience on music processing abilities [@Liu2023] suggest that cultural experience can mold lower-level music perception — despite key aspects of music perception showing evidence for universality [@Mehr2024].
+
+While research in the psychology of music has had a recent increase in focus on cross-cultural studies, like many of the cognitive sciences the bulk of music research is still carried out in Western, Educated, Industrialized, Rich, and Democratic (WEIRD) societies, using stimuli from these same societies. This, of course, paints a non-representative picture of musicality [@Jacoby2020]. One route forward is the diversification and expansion in scope of global music corpora [@Savage2018a].
+
+This is not a new idea: collecting large numbers of samples from diverse participants is common in many fields. Psycholinguists often unite corpus work with empirical studies, improving the ecological validity of their work [@Gilquin2009]. For example, analysis of a naturalistic corpus of spoken conversation showed that turn-taking happens more than twice as rapidly as previously shown in laboratory studies [@Reece2023]. In the field of emotion perception, a study that used an expansive set of stimuli (over 2000 recordings of vocal bursts from people in four countries) mapped 24 distinct clusters of emotion categories and their overlap [@Cowen2018]. A related approach to animal vocalizations revealed no apparent relation between magnitude of a species' sexual dimorphism in size and the pitch or complexity of birdsong, contrary to what would be predicted by sexual selection accounts of birdsong evolution [@Pearse2018]. The use of large, diverse, and naturalistic corpora can also mitigate the over-representation of English in cognitive science research [@Blasi2022].
+
+```{r fig1, results = "asis", out.height = "70%", fig.align = "center", fig.cap="\\textbf{Figure 1 | How we built the corpus. A} We gathered candidate items from libraries and online databases via broad initial searches. \\textbf{B} To create a \"deep\" sample that densely sampled from three large language families for closer study, we retained all items from the Atlantic-Congo, Austronesian, and Indo-European language families. To create a \"broad\" sample that was diverse and did not over-represent any particular language family, we culled the initial search by selecting a maximum of 2 songs per language family per behavioral context (in families other than Atlantic-Congo, Austronesian, and Indo-European). \\textbf{C} Audio recordings of candidate items were sourced digitially or by digitizing from a physical CD or LP, and associated liner notes were scanned. \\textbf{D} Two independent groups of annotators validated the metadata for each recording; each group reviewed the liner notes for each recording and determined whether there was sufficient information therein to determine the recording's region, language, and behavioral context. When two annotators disagreed on such determinations, a third annotator arbitrated, or a consensus decision was reached after discussion. \\textbf{E} The corpus was released on Zenodo, in the form of a \\texttt{CSV} metadata file and with each audio recording excerpted as a 10-second \\texttt{MP3} file; metadata was also provided to the D-PLACE database."}
+knitr::include_graphics("../viz/nhs2-methods-flowchart.png")
+```
+
+What of music? While the availability of corpora in the music domain has increased, most focus on popular or classical music, [e.g., the *Million Song Database*, @Bertin-Mahieux2011; *MusicBrainz*, @Swartz2002; the *Google/Magenta MAESTRO dataset of piano performances*, @Hawthorne2018]. Only a few attempt global representation of music [reviewed in @Savage2018a; @Panteli2017], such as *The Garland Encyclopedia of World Music* [@Nettl2002], the *Natural History of Song Discography* [@Mehr2019], *The Global Jukebox* [@Wood2022], and the *Compmusic project* [@Serra2014]. A few global corpora also focus on narrower contexts; these include infant-directed vocalizations [@Hilton2022], lullabies [@Trehub1993a], and a group of researchers producing speech and song themselves [@Ozaki2024].
+
+These music corpora vary in the availability of audio for each musical excerpt; the presence or absence of symbolic or data-analytic representations of the music; and the depth of available metadata, both for musical excerpts themselves (such as the behavioral context of a song) and the people producing the music (such as the language or dialect of the lyrics).
+
+Here, we report the *Expanded Natural History of Song Discography*, a corpus of 1007 excerpts of vocal music designed to support research on both the universality and diversity of human song [following @Mehr2019]. The sampling strategy includes both broad global representation and deep sampling of three large language families (Austronesian, Atlantic-Congo, and Indo-European). Given the well-known relevance of behavioral context to the forms of vocal music [e.g., @Yurdum2023], the corpus samples songs across 10 behavioral contexts (Table 1) with clearly defined inclusion and exclusion criteria. To maximize usability, we used standardized descriptors of all songs' metadata: behavioral context, region of origin, and the language in which the song was produced.
+
+Finally, and most importantly, the corpus, including all audio excerpts and metadata, is open-access, with no restrictions on its use (readers may access it on Zenodo at https://doi.org/10.5281/zenodo.8223168).
+
+``` {r create-behavior-table, results='asis'}
+type <- c('Dance', 'Healing', 'Love', 'Lullaby', 'Play', 'Procession', 'Mourning', 'Work', 'Story', 'Praise')
+inclusion <- c(
+  'Sung with the goal of a person or persons dancing along to it.',
+  'Sung in a healing ceremony with the goal of curing sickness.',
+  'Sung to express love directly to another person or to describe currently felt love.',
+  'Sung to an infant or child with the goal of soothing, calming, or putting to sleep.',
+  'Sung to excite a child or infant and engages them in play. This can include singing games.',
+  'Sung to accompany a formalized march, entrance, or parade, suchas during a wedding, funeral or the introduction of a leader.',
+  'Sung to express grief or sadness about the death of a person, in the present or past.',
+  'Sung to accompany work activities, including planting, grinding, harvesting, processing, tool-making.',
+  'Sung to recount historical or mythological events, narrate a sequence of activities by one or more persons.',
+  'Sung to express admiration for the traits or accomplishments of a person, animal, location, or item of property.'
+)
+exclusion <- c(
+  'Songs that happen to be accompanied by dancing but are used for other goals.',
+  'Songs describing sick people or a past epidemic.',
+  'Songs about unrequited love, deceased loved ones, or love for animals or property.',
+  'Songs designed to excite the listener (e.g., play songs); singing games.',
+  'Children\'s songs for soothing, calming, or putting to sleep.',
+  'Processions of dancing.',
+  'Songs for sick or dying people, or laments about events other than the death of a person.',
+  'Hunting songs (to celebrate successful hunts, prepare for hunts).',
+  'Lullabies that include stories.',
+  'A song expressing love for another person or explicitly religious songs (like devotionals).'
+)
+type_table <- data.frame(type,inclusion,exclusion)
+caption <- "
+\\textbf{Table 1 | Definitions of Behavioral Contexts}. Each of the 10 behavioral contexts were defined by inclusion and exclusion criteria.
+"
+knitr::kable(type_table, "latex", 
+             col.names = c('Behavioral Context','Inclusion Criteria','Exclusion Criteria'),
+             booktabs=T, escape=F, caption=caption, position = "!b") %>%
+  column_spec(1, width="5em", latex_valign = "p") %>%
+  column_spec(2, width="20em", latex_valign = "p") %>%
+  column_spec(3, width="16em", latex_valign = "p")
+  # kable_styling(latex_options="striped")
+```
+
+# Corpus construction
+
+We built the corpus in five stages. 
+
+First, research assistants searched for candidate items (Figure 1A). They were each assigned a geographical region and instructed to seek out all available recordings of songs used in each of ten behavioral contexts (Table 1). They did so using a variety of public and private sources, including internally via the Harvard Libraries (e.g., the Archive of World Music at Loeb Music Library); at various other libraries and institutes (e.g., the Centre de Recherche en Ethnomusicologie at Université Paris Nanterre, the British Library, etc.); via library aggregation databases (e.g., WorldCat); recordings previously used in the original *Natural History of Song Discography* [@Mehr2019]; and by directly contacting ethnomusicologists, music collectors, and scholars working with private collections of field recordings. Recordings were only considered to be positive candidates for inclusion if they were accompanied by credible information concerning (i) the recording's geographical region of origin; (ii) the language the recording was sung in; and (iii) source ethnography supporting the behavioral context of the recording. While these types of information were typically included in liner notes to a published album or a library-based field recording, in some cases they were provided in referenced publications (e.g., a book that accompanied a recording), or were provided informally (e.g., via email from a collector). This process yielded 2203 candidate items.
+
+Second, we culled the candidate items to an initial sample (Figure 1B), whose structure balanced *broad* sampling with large, global diversity, and *deep* sampling in select areas for more detailed study. To produce a deep sample, we retained all songs available from three specific large language families: Indo-European, Austronesian, and Atlantic-Congo. In order to maximize global diversity, we retained at least one candidate item for each behavioral context type for each additional language family and major language. For each of the 10 song behavioral contexts, if any language family (other than Indo-European, Austronesian, and Atlantic-Congo) had more than 2 songs, we randomly selected only 2 of them in an effort to avoid over-representing any particular language family. This process yielded 1609 items.
+
+Third, we obtained recordings from their original sources (e.g., using Interlibrary Loan, purchasing items, requesting digital audio files from collectors) and extracted an audio excerpt from each recording. To comply with Fair Use (under the United States doctrine), we extracted a brief excerpt of each recording, as in prior work [@Mehr2019]; we did this by using a random number generator to indicate a starting timestamp within the song and cutting the following 10 seconds of audio. If the excerpt did not contain audible singing (e.g., if it only contained instrumental music), a new random timestamp was generated until this condition was met. This process yielded 1572 song excerpts. 
+
+Fourth, two teams of two coders independently reviewed each excerpt (Figure 1D). They confirmed (i) that the excerpt contained audible singing; and (ii) did not appear to be an unfaithful recreation of an original song, such as an electronic or orchestral rendition of a traditional song, or a studio-based performance of a song that was obviously unrelated to its original context. Then, they conducted a detailed review of the source ethnography (e.g., liner notes) to ensure that the excerpt's metadata (i.e., language classification, behavioral context, and geographic region) were accurate. Each of the two teams carried out their reviews without access to the other team's review. Another researcher then compared the two teams' reviews; when assessments did not agree, they arbitrated between the two judgements, reviewing all original source materials, and deciding whether to remove a recording from the sample. The researchers' reviews thus occassionally overrode initial assessments of each song's metadata (region of origin, language, behavioral context), and resulted in a small <!--- MB: 3 (araw1281, kart1248, utoa1244)---> number of language families outside the 3 large language families having more than 2 song per behavioral context. This process yielded the complete corpus of 1007 song excerpts.
+
+Finally, we prepared the corpus for public release (Figure 1E). We used Adobe Audition to normalize the loudness and add 1-second fades at the beginning and end of each excerpt, to facilitate their use in experiments. We released the corpus publicly on Zenodo (https://doi.org/10.5281/zenodo.8223168), including all audio files and a metadata table. Spreadsheets detailing each stage of song search, song sourcing, and validation are in this paper's GitHub repository (https://github.com/themusiclab/nhs-expanded).
+
+We also provided a version of the corpus to *D-PLACE: The Database of Places, Language, Culture, and Environment* [@Kirby2016], which stores the *Expanded Natural History of Song Discography* in a dedicated Github repository (https://github.com/D-PLACE/dplace-dataset-ccmc) in Cross-Linguistic Data Format [@Forkel2018], an approach that facilitates analyzing the corpus alongside other cross-cultural and cross-linguistic datasets. As in other iteratively-updated corpora concerning human behavior [e.g., *Saraga*, a dataset of Indian art music @Srinivasamurthy2021], this format allows users to suggest changes to the corpus by submitting pull requests, which the managers of the repository can review and approve.
+
+``` {r fig2, results='asis', out.width="100%", fig.cap="\\textbf{Figure 2 | The Expanded Natural History of Song Discography}. \\textbf{A} The 1007 songs in the corpus are globally distributed. The size of each bubble represents the number of songs in the corpus from the approximate map location. Locations are plotted using Glottolog metadata and aggregated by glottocode (i.e., languoid); 47 locations, representing 88 songs, are omitted due to missing location data. \\textbf{B-E} The linguistic distribution is broad, with approximately half the corpus representing three large language families, deeply sampled; and the other half from a large number of other language families (see the pie chart in \\textbf{E}). In the phylogenetic language trees, lineages are highlighted in color when represented by at least one song. \\textbf{F} The distribution of behavioral contexts represented in the corpus is also broad; the heatmap depicts the number of songs representing each geographic region in each of the ten behavioral contexts studied. Of the 380 possible region-by-behavioral-context pairings, 328 are represented by at least one song."}
+knitr::include_graphics(here("viz","Figure2_largerTrees.png"))
+```
+
+## Annotation details
+
+We annotated each song with three pieces of metadata: (1) *region*, the geographic region in which it was recorded; (2) *glottocode*, the languoid (i.e., a language or dialect) in which it was sung; and (3) *type*, the behavioral context surrounding its original use. 
+
+We classified geographic regions with a predetermined set of world regions defined by the *Electronic Human Relations Area Files* (eHRAF) [@HRAF1967]^[With the exception of one North American subregion, "Regional, Ethnic, and Diaspora Cultures", which had ambiguous boundaries.], following our previous work [@Mehr2019]. In addition to the original 35 eHRAF regions we included Western Europe, Central Europe, and Eastern Europe, which at the time of writing are not included in eHRAF.
+
+We classified languoids via the *Glottolog* database [@Hammarstrom2023], using as precise a languoid level as the available information allowed. For example, for some songs, the supporting liner notes were sufficiently detailed that annotators, unaware of each other's work, identified the same specific dialect that a song was sung in. In others, annotators could only reach consensus on the broader language. The use of glottocodes allows each song to be linked to a persistent identifier with a known location in the genealogy of all the world's languages, and allows this corpus to be integrated with other existing cross-cultural datasets that use such identifiers, such as *D-PLACE* [@Kirby2016], *NoRaRE* [@Tjuka2021], *PHOIBLE* [@Moran2019], *Lexibank* [@List2022], and *Grambank* [@Skirgard2023]. Glottocodes are often used in phylogenetic analyses, for example, to study questions surrounding the evolution of syntactic structure [@Hahn2022]. They can similarly be used to study the evolution of musical forms. 
+
+To determine song behavioral context, research assistants read the songs' associated liner notes to confirm whether each song fit an inclusion criterion for any of the behavioral contexts we considered here, and did not violate its exclusion criteria (Table 1). The present corpus considers ten behavioral contexts; the four considered in the original *Natural History of Song Discography* (i.e., dance, healing, love, lullaby), along with six newly added behavioral contexts: play, mourning, work, praise, story, and procession; see Table 1. These six were chosen by surveying the existing literature for candidate song contexts that appeared across distant human societies. Some songs plausibly aligned with more than one behavioral context definition (see Discussion); in these cases, research assistants chose what they determined the liner notes communicated about the song's *primary* function, even if the song could plausibly be represented by more than one context.
+
+For both geographic region and glottocode, when the supporting evidence was ambiguous, annotators made judgments by consensus (e.g., in `NHS2-U13X`, the liner notes describe the general cultural context being the music of the Minnesota Ojibway, suggesting the eHRAF region *Plains and Plateau*, but also describe exchange with Ojibway who live over the Canadian border, where songs were actually recorded; annotators ultimately chose the eHRAF region *Arctic and Subarctic* for this song); or used a more general glottocode at a higher level of the language tree (e.g., in `NHS2-2BT6`, where liner notes state this recording is from Tiga Island, which currently has no corresponding glottocode; instead, annotators chose a higher level of linguistic granularity, with the *Loyalty Islands* languoid). Shifts between these levels of granularity make it difficult to measure how many distinct societies the corpus actually represents; the 413 languoids labelled in the corpus likely reflect a lower bound on the number of societies represented.
+
+## Breadth and depth of the corpus
+
+```{r descriptives}
+n_per_glotto <- nhs2 %>% group_by(glottocode) %>% summarise(n = n())
+n_per_type <- nhs2 %>% group_by(type) %>% summarise(n = n())
+n_per_region <- nhs2 %>% group_by(region) %>% summarise(n = n())
+n_family_id <- unique(nhs2$family_id) %>% length()
+n_per_family_id <- read.csv("../data/lfam_totals.csv")
+n_typexregion <- nhs2 %>% group_by(region, type) %>% summarise(n = n()) %>% pull(n) %>% length()
+
+p_lasso4 <- 
+  readRDS(paste(here(),"/results/LASSO_4_perm-centiles.RDS",sep="")) %>%
+  mutate(p = 1-prop_larger) %>% 
+  mutate(ptext = case_when(
+    p < .005~ "*p* < .005",
+    p < .01 ~ "*p* < .01",
+    p < .05 ~ "*p* < .05",
+    .default=paste("p = ",p,sep="")
+  ))
+p_lasso10 <- 
+  readRDS(paste(here(),"/results/LASSO_10_perm-centiles.RDS",sep="")) %>% 
+  mutate(p = 1-prop_larger) %>% 
+  mutate(ptext = case_when(
+    p < .005~ "*p* < .005",
+    p < .01 ~ "*p* < .01",
+    p < .05 ~ "*p* < .05",
+    .default=paste("p = ",p%>%round(digits=2),sep="")
+  ))
+
+```
+
+The *Expanded Natural History of Song Discography* contains `r nhs2$glottocode %>% length()` songs, with broad global and linguistic distributions (Figure 2A-E). The sampling strategy yielded a broad diversity of songs across languages ($n=$ `r nhs2$glottocode %>% unique() %>% length()` languoids, median songs per languoid = `r median(n_per_glotto$n)`, range `r min(n_per_glotto$n)`-`r max(n_per_glotto$n)`); behavioral contexts (10 types, median songs per type = `r median(n_per_type$n)`, range `r min(n_per_type$n)`-`r max(n_per_type$n)`); and geographic regions (median songs per region = `r median(n_per_region$n)`, range `r min(n_per_region$n)`-`r max(n_per_region$n)`). Of the 380 possible behavior-by-region combinations, `r n_typexregion` are represented by at least one song (Figure 2F).
+
+The strategy to deeply sample songs across three language families (Austronesian, Indo-European, and Atlantic-Congo) yielded many songs (`r nhs2 %>% filter(family_id %in% c('aust1307', 'atla1278', 'indo1319')) %>% pull(family_id) %>% length()` of the `r nhs2$glottocode %>% length()` songs) with languages hailing from diverse branches within each language family (Figure 2B-D). This mixed approach to sampling (both a deep and broad sample) should facilitate phylogenetic analyses, while still maintaining a large representation of language families corpus-wide ($n=$ `r nrow(n_per_family_id)` language families).
+
+# Results
+
+We undertook two sets of analyses. The first focussed on the breadth of the corpus, to test a question of universality; and the second focussed on the depth of the corpus, to test a question of diversity.
+
+## Proof-of-concept 1: Acoustic forms predict the behavioral contexts of songs
+
+We and many others have argued that aspects of music are mutually intelligible across cultures [@Argstatter2016; @Balkwill1999; @Balkwill2004; @Fritz2009; @Laukka2013; @Sievers2013; @Trehub1993; @Mehr2019; @Mehr2018; @Hilton2022a; @Hilton2022; @Yurdum2023; see @Singh2023 for a review]. A pattern of mutual intelligibility implies links between form and function, akin to those found in vocalizations found in non-human primates [@Owren2001; @Filippi2017]; frogs [@Wagner1989]; hawks [@Mueller1971]; and deer [@Clutton-Brock1979]. In music, form-function links are predicted by functional accounts of musical behavior [e.g., @Kotler2019; @Mehr2017a; @Mehr2017b; @Mehr2021].
+
+While studies of form-function links in music include a large diversity of *listeners*, they use a limited diversity of *music* as stimuli. For example, previous work showed an ability to detect the behavioral context of lullabies, dance songs, and healing songs in English-speaking adults recruited on Amazon Mechanical Turk [@Mehr2018]; in English-speaking adult citizen-science volunteers [@Mehr2019]; in English-speaking children [@Hilton2022a]; and in adults recruited globally, in many languages, who were living in both industrialized and non-industrialized societies [@Yurdum2023]. But in all four studies, the same relatively small collection of 118 songs was studied (i.e., the original *Natural History of Song Discography*). While this collection represented an advance in the diversity of music studied in this type of experiment [@Fitch2019], its small size constrains the generality of findings using it.
+
+As such, for a first proof-of-concept of the utility of the *Expanded Natural History of Song Discography*, we aimed to reproduce the findings of these previous studies, testing whether the acoustic features of songs in the corpus were reliably predictive of their behavioral functions across the cultures represented in a second, larger corpus.
+
+``` {r fig3, results='asis', out.width = "100%", fig.cap = "\\textbf{Figure 3 | The acoustic forms of songs predict their behavioral contexts with varying accuracy}. We trained an ensemble LASSO model to predict the behavioral context of songs using acoustic features extracted from their recordings. Significance testing was performed using a permutation test on the results of the ensemble model, with the $p$-value set to the proprtion of random permutations with accuracy greater than the ensemble model for each song function (*$p<.05$, **$p<.01$, ***$p<.005$). The confusion matrices show \\textbf{A} a conceptual replication of prior work (Mehr et al., 2019), using only the four behavioral contexts studied therein. Lullabies, dance, healing, and love songs are all predicted with significant accuracy, but sensitivity to lullabies and dance songs is far higher than for healing and love songs. This analysis approach is extended in \\textbf{B} to all ten behavioral contexts studied in the \\textit{Expanded Natural History of Song Discography}."}
+knitr::include_graphics(paste(here(),"/viz/Figure3.png",sep=""))
+```
+
+We extracted statistical summaries of the acoustic content of each song excerpt using `MIRtoolbox` [@Lartillot2008], a MATLAB toolbox for analysis of spectral and rhythmic features. We used the `mirfeatures` function to extract 38 acoustic features per song. The song excerpts were loudness-matched before model fitting. This tool has previously been used to quantify musical features in stimuli that elicit groove in music [@Matthews2020]; to describe global patterns in the acoustic features of speech and song [@Hilton2022; @Albouy2024]; and to relate acoustical forms of songs to their behavioral contexts [@Mehr2019].
+
+We ran a least absolute shrinkage and selection operator (LASSO) model [@Friedman2010] to predict the behavioral context from each excerpt's acoustic features. To minimize bias due to differing base rates of behavioral types, including cases in which the LASSO model limits its predictions to a small subsample of the most prevalent behavioral types, we used an ensemble modelling approach in which many LASSO models were ran and their predictions were aggregated. We first randomly split the data into a 10-part test-train partition. To create predictions for each testing partition while minimizing base-rate biases, we generated new training sets by bootstrapping (i.e., sampling with replacement) from the remaining training partitions while keeping the number of behavioral types equivalent (e.g., in each partition, sampling the same number of dance songs as story songs). 
+
+For each testing partition, we bootstrapped 10 training sets and trained a LASSO model on each set, recording its predictions. We repeated this procedure for 25 randomly selected test-train splits. Finally, the results were aggregated, with the final prediction for each song recorded as the modal prediction from the 250 LASSO models. We calculated significance by performing a permutation test on the output of the model; *p*-values for the model as whole as well as each behavioural context were estimated as the proportion of permutation simulations which resulted in accuracy higher than the ensemble model. 
+
+We first used this approach to classify only songs from the four behavioral contexts represented in the original *Natural History of Song Discography* (i.e., dance, lullaby, healing, and love), providing a direct replication of prior results [see Figure 5B in @Mehr2019]. 
+
+The replication was successful (Figure 3A): the model's classification of song behavioral contexts based on acoustic features was above chance (mean accuracy = `r paste(round(acc_lasso4*100, digits=1),'%',sep="")`, chance level: 25%; `r p_lasso4 %>% filter(type=="all") %>% pull(ptext)`, permutation test) and higher than in @Mehr2019, where mean accuracy using `MIRtoolbox` features was on par with human listeners, at approximately 42% correct. Moreover, accuracy varied across song types in an identical fashion to the pattern found in the smaller corpus, where dance songs and lullabies are classified with highest accuracy, while healing songs and love songs are classified with lower accuracy (dance: `r p_lasso4 %>% filter(type=="Dance") %>% pull(ptext)`, lullaby: `r p_lasso4 %>% filter(type=="Lullaby") %>% pull(ptext)`, healing: `r p_lasso4 %>% filter(type=="Healing") %>% pull(ptext)`, love: `r p_lasso4 %>% filter(type=="Love") %>% pull(ptext)`, permutation tests). Note that we define chance accuracy as the inverse of the number of behavioral contexts, rather than the proportion of songs of a given behavioural context actually present in the corpus.
+
+Second, we expanded the approach to test whether the same acoustic features could be used to identify all *ten* behavioral contexts represented in the new corpus --- six of which have not previously been studied in this fashion (i.e., play, procession, praise, work, mourning, story). We used the same LASSO ensemble modeling approach. 
+
+Here too the acoustical forms of songs were predictive of their behavioral contexts (Figure 3B). On average, performance was above chance (accuracy = `r paste(round(acc_lasso10*100, digits=1),'%',sep="")`, chance level of 10%; `r p_lasso10 %>% filter(type=="all") %>% pull(ptext)`, permutation test), although with ten categories of songs, variability was high (dance: `r p_lasso10 %>% filter(type=="Dance") %>% pull(ptext)`, lullaby: `r p_lasso10 %>% filter(type=="Lullaby") %>% pull(ptext)`, play: `r p_lasso10 %>% filter(type=="Play") %>% pull(ptext)`, procession: `r p_lasso10 %>% filter(type=="Procession") %>% pull(ptext)`, praise: `r p_lasso10 %>% filter(type=="Praise") %>% pull(ptext)`, healing: `r p_lasso10 %>% filter(type=="Healing") %>% pull(ptext)`, work: `r p_lasso10 %>% filter(type=="Work") %>% pull(ptext)`, mourning: `r p_lasso10 %>% filter(type=="Mourning") %>% pull(ptext)`, love: `r p_lasso10 %>% filter(type=="Love") %>% pull(ptext)`, story: `r p_lasso10 %>% filter(type=="Story") %>% pull(ptext)`, permutation tests). Some song contexts showed very clear relations: lullabies, dance songs, and play songs all have relatively high *d*-prime scores. However, the model has no sensitivity at all to story songs, and only weakly detects love songs, conceptually replicating prior work on human classification of love songs; [@Mehr2018, @Yurdum2023].
+
+## Proof-of-concept 2: Cultural relatedness and behavioral context both explain acoustical similarities in songs
+
+```{r fig_lullabies_dance, results='asis', out.width = "100%", fig.cap = "\\textbf{Figure 4 | Visual exploration of spectral entropy across cultures.} Spectral entropy, an acoustic feature that loosely tracks musical complexity, shows distinctive patterns within and between language families. \\textbf{A} In each of three language families, there is a robust difference in spectral entropy between dance songs (in blue) and lullabies (in green). \\textbf{B} This effect replicates across the rest of the 49 language families in which both dance songs and lullabies are represented in the corpus. In \\textbf{C} a within-language-family view of the same data shows variability in spectral entropy in both dance songs and lullabies within each deeply-sampled language family tree. Nodes closer to the center of the tree are colored to show the average spectral entropy of the songs included in that clade. The Indo-European lullabies, for instance, show that spectral entropy is overall relatively low for most languages, but also reveals languages where spectral entropy is atypically high, given the behavioral context."}
+knitr::include_graphics(paste(here(),'/viz/Figure4.png',sep=""))
+```
+
+``` {r fig_explained_variance, results='asis', out.width = "100%", fig.align = 'center', fig.cap = "\\textbf{Figure 5 | Effects of behavioral context, culture, phylogeny and proximity on acoustic features in song.} We fit Bayesian group effects models calculating explained variance (measured by intra-class correlation, ICC) for each acoustic feature extracted from songs in the corpus. We present results for an example feature, spectral entropy. In \\textbf{A}, we compare the ICC of models fit with behavior (coded by song type), culture (coded by language), or both for the mean spectral entropy of each song. We note that the proportion of explained variance for behavior and culture are independent for this and other acoustic features (not shown), such that including both factors additively increases the total explained variance. \\textbf{B} shows the distribution of ICC of behavior and culture from the model which includes both over all 38 acoustic features. Variance captured by behavioral context tends to be consistent but lower across the acoustic features, whereas variance captured by culture tends to be more variable. In \\textbf{C}, we compared models for spectral entropy which additionally included phylogenetic distance and/or geographical distance, which we can take as proxies for vertical and horizontal transmission, respectively. We see that the explained variance of culture is largely absorbed by geographical proximity, while variance explained by phylogeny is relatively low. Additionally, there is little additional explained variance gained from including these two new factors, a trend which holds for all acoustic features. In \\textbf{D}, we show the ICC across all acoustic features from models which include all four factors. We see that the explained variance of proximity has absorbed much of the ICC previously attributed to culture, while ICC for phylogeny is consistently quite low."}
+knitr::include_graphics(paste(here(),'/viz/Figure5.png',sep=""))
+```
+
+Many studies explore how music perception and production are patterned across cultures, as such data are informative for hypotheses concerning the biological and cultural evolution of music [for discussion, see @Mehr2021]. Indeed, a variety of sources of evidence support the idea that cultural experience shapes musicality: infants show preferences for culturally familiar metrical structures over unfamiliar ones [@Soley2010]; music processing abilities (i.e., pitch discrimination and beat alignment) differ as a function of linguistic experience [@Liu2023]; melodies sung in tonal languages are shaped in part by the contours of those languages [@KirbyLadd2016]; and so on. 
+
+Computational approaches that directly model cultural relatedness have tested a variety of hypotheses about the structure of cross-cultural diversity in musicality, complementing these experimental studies. Such approaches have revealed how frequent specific structural forms are globally, such as the near-universal use of discrete pitches and non-equidistant scales versus the large cultural variance in the use of pentatonic scales [@Savage2015]. And in contrast to language, which by necessity requires low within-population variability to enable communication, musical diversity throughout Austronesian languages shows more variability within languages than between them [@Rzeszutek2012].
+
+One outstanding question in the modelling of musical diversity is how the interplay between cultural diversity and the functional uses of music lead to reliable variability in musical forms. This question has been difficult to address, however, because previous corpus studies have not accounted for the behavioral contexts of the music being performed. This omission complicates the interpretation of cross-cultural models, as the music available for a given language or language family may be strongly biased. For example, if a sample of Hindi songs include only dance music and no lullabies, model estimates for the influence of Hindi culture on musical features will be biased toward those features characterizing dance songs, even if such a shift is independent of linguistic influences. 
+
+The availability of behavioral context information for each song in the *Expanded Natural History of Song Discography* allows for a test of the relative impact of contextual factors (e.g., when a song is used for soothing a baby) on musical features, relative to the impacts of geographical location, language, and linguistic ancestry of that ethnolinguistic group on how a song sounds.
+
+We demonstrate this approach with an example acoustic feature *spectral entropy*, which loosely tracks musical complexity. For example, spectral entropy correlates with perceived musical disorganization and phrase termination [@Danieli2022], and melodic and textural entropy represent components of complexity relating to musical pleasure [@Margulis2008]. Several theories predict that lullabies and dance songs should differ substantially on this feature, as lullabies tend to be identifiable in being "soft" and "simple" [@Trehub1993] and low in roughness [@Hilton2022]. 
+
+In Figure 4, we examine this feature within the three deeply-sampled language families, and across the whole corpus. The overall effect of behavioral context is evident: dance songs, as a class, are higher in spectral entropy than lullabies (Figure 4A-B). Additionally, spectral entropy values also differ between dance songs and lullabies *within each language family* (Figure 4C). 
+
+These exploratory, descriptive visualizations help reveal how acoustics vary between cultures and behavioral contexts, highlighting the substantial variability within each language family, while demonstrating the general trend that spectral entropy can coarsely differentiate between dance songs and lullabies. This association may track with differences in the purpose of dance music and lullabies, especially with regards to up- or down-regulating emotional arousal.
+
+We continued by asking the more general question of what the relative influences of behavioral context and phylogeny are across all the measured acoustic features (not only spectral entropy). We used Bayesian phylogenetic modeling to estimate the group-level effects on acoustic features of (a) songs' behavioral context; (b) culture (indexed by glottocode); (c) linguistic ancestry (henceforth *phylogeny*); and (d) geographical proximity . The model was estimated in `brms` [@Burkner2020], modeling random group effects using Gaussian processes and computing intra-class correlation (ICC) as the proportion of variance explained by each variable. The acoustic features used here are the same `MIRtoolbox` features described in the previous section. Phylogenetic distance between languages was modeled assuming Brownian diffusion of traits on a single Maximum Clade Credibility language tree describing language geneology across the globe [@Bouckaert2022]. Geospatial proximity was calculated using `geosphere` [@Burkner2022] on geospatial data present in the *Glottolog* [@Hammarstrom2023] for each language, assuming covariance is exponentially proportional to geographic distance. 
+
+We ran the model on the deeply sampled subset of the corpus, that is, on songs from the Indo-European ($n=$ `r nhs2 %>% filter(family_id %in% c('indo1319')) %>% pull(family_id) %>% length()`), Austronesian ($n=$ `r nhs2 %>% filter(family_id %in% c('aust1307')) %>% pull(family_id) %>% length()`), and Atlantic Congo ($n=$ `r nhs2 %>% filter(family_id %in% c('atla1278')) %>% pull(family_id) %>% length()`) language families (total $N=$ `r nhs2 %>% filter(family_id %in% c('aust1307', 'atla1278', 'indo1319')) %>% pull(family_id) %>% length()`). These families all diversified over the last few thousand years and together now represent ~40% of the world's languages^[At time of writing, Glottocode documents 3270 child languages of these three language families, out of 8605 total languages documented.]. Focusing on these three large families allows inferences about the relative importance of geographic proximity of other cultures and shared linguistic ancestry as factors in shaping song diversity over this period.
+
+First, we tested the relative influence of behavioral context and language, leaving aside phylogenetic or geographic proximity. For each acoustic feature, we ran three models: a model that included a term for songs' behavioral contexts; a model that included a term for songs' culture via its glottocode; and a model that included both. All models show $\hat{R} <1.05$, suggesting convergence in sampling. 
+
+Figure 5A shows an example of ICCs across these three models for a single feature (here again, for illustration, we use *spectral entropy*). The explained variance from behavioral context and culture are independent, evidently, in that the total explained variance for the model that includes both is roughly the sum of the models that include the terms individually. This demonstrates that *both* behavioral context and culture are important factors shaping the variability in the sounds of songs.
+
+This pattern repeated across other measured acoustic features: density plots of the ICC across all acoustic features for the models that include both behavioral context and culture show effects of both behavioral context and culture, but in general, culture tends to have a larger proportion of explained variance (Figure 5B). That is, songs are more similar in their acoustic features to each other when grouped by language than by behavior.^[Note, however, that behavior is limited to 10 different factors, one for each context, while language uses `r nhs2 %>% filter(family_id %in% c('aust1307', 'atla1278', 'indo1319')) %>% pull(glottocode) %>% unique() %>% length()` different factors. A finer- or coarser-grained taxonomy of behavioral contexts could change this result.]
+
+Last, we repeated these analyses, adding terms to the model that compare the effects of phylogeny and geographical proximity, to ask whether similarities between acoustic features are better explained by horizontal transmission (transfer of features between cultures in close geographic proximity) or vertical transmission (transfer of features through descent groups within a lineage), independently of culture or behavioral context. The phylogenetic proximity was calculated as covariance matrices derived from the global tree [@Bouckaert2022]  while geographical proximity used coordinates associated with glottocodes [@Hammarstrom2023].
+
+As in the first analysis, our strategy was to model the two features of interest separately and then together in a third model. Figure 5C shows the resulting ICCs for spectral entropy; geographical proximity absorbs much of the explained variance originally attributed to culture, while phylogeny explains a much smaller proportion. This trend apparently generalizes to other acoustic features, as in Figure 5D, which shows the distributions of ICCs from models that include both phylogeny and proximity for all acoustic features. 
+
+The ICCs for phylogenetic proximity are low, in general, suggesting that horizontal transmission across language genealogies plays a more significant role in shaping the acoustics of music than does vertical transmission. Geographical and phylogenetic proximity also explained minimal variance beyond behavioral context and culture, although there is still substantial variability in the amount of variance explained across different acoustic features.
+
+# General discussion
+
+We report the *Expanded Natural History of Song Discography* and describe its applications for cross-cultural research on the universality and diversity of human song, with two proofs of concept. First, LASSO classifiers showed that the behavioral contexts of songs are detectable on the basis of their acoustic features, with variability in accuracy across contexts. Second, Bayesian group-effects modeling showed that the language and behavioral context of songs explains variability in acoustics independently, with further influences of language ancestry and geographic proximity.
+
+The *Expanded Natural History of Song Discography* is permanently archived at https://doi.org/10.5281/zenodo.8223168 and we encourage members of the research community to use this resource in their research. 
+
+Many questions should be testable with this corpus. For example, in conjunction with large multi-lingual speech corpora, such as *Common Voice* [@Ardila2020] and *DoReCo* [@Seifart2024], one might study how speech and song vocalizations may co-vary across cultures and contexts. Research applying the audio files in citizen-science experiments might investigate how the original behavioral context may shape or constrain emotional reactions to the music, allowing us to better understand the evolutionary underpinnings of musical behaviors. Laboratory studies on psychological responses to music may sample stimuli from the corpus, as in previous work [@Bainbridge2021], so as to improve the generalizability of experimental findings which necessarily use a small number of stimuli [see @Hilton2022b]. 
+
+One important long-term use for corpora involves new data. We hosted the corpus on *D-PLACE* to help users easily link the songs from this corpus to cultural and ecological data from other corpora. The provision of raw audio files also means researchers can experiment with different methods of musical and acoustic feature extraction. For the purposes of this paper, we used only single-valued estimates of acoustic features automatically extracted with an off-the-shelf tool (`MIRtoolbox`), but this approach has many limitations (for instance, a single estimate of tempo does not account for a song speeding up or slowing down). Richer data characterizing the musical features of each song, such as changes in features over time or transcriptions created with pitch-extraction software, may support more robust tests of cultural transmission and variability in music [see @Mehr2019 for discussion].
+
+Moreover, we anticipate that future iterations of this corpus would benefit from expanding annotation data. For example, reporting the degree of confidence alongside each coding decision has been argued to improve transparency when reporting cross-cultural databases, similar to how it is standard practice to report measures of inter-rater reliability when multiple researchers ascribe codes to the same data [@Slingerland2020]. Further, some songs could plausibly be described as having more than one behavioral context, but such information is not captured by the current version of the corpus; a potential solution is to include a secondary behavioral context when applicable or refine our behavioral taxonomy as we learn more about form-function relationships in music. The inclusion of multiple labels in this fashion may aid the evaluation of classification accuracy [@McKay2006a].
+
+Lastly, we encourage researchers to test hypotheses about the evolution of music using this corpus, as well as to connect it to other datasets that reveal how song evolution may be driven by cultural and ecological factors. Such questions have a long history in computational analyses of language, with phylogenetic analyses of this kind revealing that languages evolve in rapid bursts [@Atkinson2008]; a mapping of the expansion of Austronesian [@Gray2009], Indo-European [@Bouckaert2012], Pama-Nyungan [@Bouckaert2018], and Sino-Tibetan [@Sagart2019; @Zhang2019b] language families; and the finding that word order can be explained as a function of linguistic lineage rather than Chomskyan universality [@Dunn2011]. As the study of the evolutionary history of human vocalization grows, we hope that this corpus will provide a systematically constructed foundation for those curious about how musicality is instantiated worldwide.
+
+\bigskip
+
+# End notes {-}
+
+## Data, code, and materials availability {-}
+The Expanded Natural History of Song Discography is freely available at https://zenodo.org/doi/10.5281/zenodo.8223168. A fully reproducible manuscript; data; analysis and visualization code; and other materials are available at https://github.com/themusiclab/nhs-expanded; this repository will be permanently archived on Zenodo at the time of publication.
+
+## Acknowledgments {-}
+We thank Micah Walter, Brisa Garcia, and Nivi Ravi for contributions to searches for candidate items; Sumi Onoe for contributions to corpus validation; Luke Glowacki for contributing key ideas and support early in the project; and the members of The Music Lab for feedback and discussion.
+
+## Funding {-}
+This research was supported by the US National Institutes of Health Director's Early Independence Award DP5OD024566 (S.A.M.); the Royal Society of New Zealand Te Apārangi Rutherford Discovery Fellowship RDF-UOA2103 (S.A.M. and M. Snarskis); the Marsden Fund Standard Grant MFP-UOA2133 (S.A.M. and M. Snarskis); the Royal Society of New Zealand Marsden Standard Grant 20-UOA123 (Q.D.A.); the Fonds de Recherche du Québec Nature et Technologies PR-299652, to Sarah C. Woolley (supporting M.B.); and a doctoral training scholarship from Fonds de Recherche du Québec Nature et Technologies (M.B.).
+
+## Author contributions {-}
+S.A.M. and M. Singh conceived of the research, with design contributions from Q.D.A. and T.K.. S.A.M. and Q.D.A. provided funding. The initial search for candidate songs for the corpus was conducted by A.B., D.S., H.D., L.D., C.M.B., N.M., T.I., K.L., J.K., and J.L., under the supervision of S.A.M., S.A., and M.B. The process for sourcing audio recordings was developed and supervised by L.Y. and C.M.B., and items were sourced by L.Y., C.M.B., J.S.L., and M.B. The songs were validated by M.B., C.B.H., A.K., T.K., J.S.L., A.M., V.M., M. Shin, and M. Snarskis. M. Snarskis and M.B. conducted analyses and created visualizations, with contributions from S.A.M. M.B., M. Snarskis, and S.A.M. led the writing of the manuscript, and all authors approved it.
+
+## References

@@ -1,0 +1,2447 @@
+``` {r setup, include=FALSE}
+library(tidyverse)
+library(ape)
+library(brms)
+library(ggtree)
+library(stringr)
+library(treeio)
+library(patchwork)
+library(geosphere)
+library(here)
+library(cowplot)
+set.seed(1)
+
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# BiocManager::install("ggtreeExtra")
+library(ggtreeExtra)
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+``` {r load-corpus}
+# load NHS corpus
+nhs2 <- read.csv('../data/metadata.csv', skip = 0, header = TRUE)
+nhs2$glottocode2 <- nhs2$glottocode
+
+# load glottolog and add family_id
+glog <- read.csv('../data/languoidGlottolog.csv', skip = 0, header = TRUE)
+colnames(glog)[colnames(glog)=='id'] <- 'glottocode'
+nhs2 <- merge(nhs2, glog[c('glottocode','family_id','latitude','longitude','name')])
+rm(glog)
+
+# load audio features
+# audio_feats <- read.csv('../data/audioExtraction_raw.csv', skip = 0, header = TRUE)
+# af_onlystd <- audio_feats %>% select(song, contains("std"))
+audio_feats_med <- read.csv('../data/audioExtraction_raw_median_all.csv', skip = 0, header = TRUE)
+# audio_feat_med_wstd <- merge(audio_feats_med, af_onlystd, by.x="song")
+# write_csv(audio_feat_med_wstd, file="audioExtraction_raw_median_all.csv")
+
+audio_feats <- audio_feats_med[!audio_feats_med$song=="",]
+
+# get audio feature names
+af_names <- colnames(audio_feats)[-1] # remove "song"
+
+# merge metadata with audio features
+audio_data <- merge(nhs2, audio_feats, by.x="song")
+
+## BUILD PHYLO COVARIANCE MATRIX ########################
+# load language tree
+global_tree <- read.nexus("../data/global-language-tree-MCC-labelled.tree")
+# global_tree_ogname <- global_tree
+
+# edit tree labels to only show glottocode
+labels <- global_tree$tip.label
+new_labels <- str_extract(labels, '^[a-z]{4}[0-9]{4}')
+global_tree$tip.label <- new_labels
+
+# build a covariance matrix, remove songs not found in nhs2
+full_cor <- vcv.phylo(global_tree, model = "Brownian", corr = TRUE)
+phyl_cov <- full_cor[colnames(full_cor) %in% nhs2$glottocode, colnames(full_cor) %in% nhs2$glottocode]
+rm(full_corr)
+
+# check: all glottocodes in corpus present in tree, remove those that aren't
+nhs2[nhs2$glottocode %in% new_labels,]
+audio_data_lim <- audio_data[audio_data$glottocode %in% new_labels,]
+
+## BUILD GEOSPACIAL COVARIANCE MATRIX  ##################
+# get proximity
+langloc <- audio_data_lim %>% 
+  distinct(glottocode, .keep_all=TRUE)
+
+# create distance matrix
+dmat = distm(
+  langloc[c("longitude","latitude")]
+  #fun=distVincentySphere
+  )
+rownames(dmat) <- langloc$glottocode
+colnames(dmat) <- langloc$glottocode
+
+# log distance matrix
+# assumes: cov exponentially prop.to geoDist
+logdmat <- log(dmat)
+diag(logdmat) <- 0
+#logdmat[logdmat==-Inf] <- 0
+logdmat <- logdmat / max(logdmat)
+prox_cov <- (1 - logdmat)
+
+#prox_cov[prox_cov==0] <- 1
+
+audio_data_lim$glottocode3 <- audio_data_lim$glottocode
+
+# z-score data
+af_zscored <- audio_data_lim
+af_zscored[af_names] <- scale(af_zscored[af_names])
+colnames(af_zscored)[colnames(af_zscored)=="glottocode"] <- "language"
+colnames(af_zscored)[colnames(af_zscored)=="glottocode2"] <- "phylogeny"
+colnames(af_zscored)[colnames(af_zscored)=="glottocode3"] <- "geospacial.pos"
+
+# create explained variance df
+ev_df <- data.frame(feature=character(), variable=character(),value=numeric(), stringsAsFactors=FALSE)
+```
+
+``` {r init-model-creation}
+## creating and saving init models
+df <- af_zscored
+
+m1 <- brm(
+  # formula
+  ex_rhythm_attack_time_mean ~ 1 +
+    (1 | gr(language)),
+    # (1 | gr(geospacial.pos, cov=prox_cov)) +
+    # (1 | gr(phylogeny, cov=phyl_cov)) +
+    # (1 | gr(type)),
+  # data
+  data = df,
+  data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+  # set reasonable priors
+  prior = c(
+    prior(normal(0, .5), class = Intercept),
+    prior(exponential(5), class = sd),
+    prior(exponential(5), class = sigma)
+  ),
+  control = list(adapt_delta = 0.8),
+  cores = 4,
+  iter = 1
+)
+filename <- paste(here(),"/results","/fits/","m1","/","init_model",".Rds",sep="")
+saveRDS(m1,filename)
+
+m2 <- brm(
+  # formula
+  ex_rhythm_attack_time_mean ~ 1 +
+    (1 | gr(language)) +
+    # (1 | gr(geospacial.pos, cov=prox_cov)) +
+    # (1 | gr(phylogeny, cov=phyl_cov)) +
+    (1 | gr(type)),
+  # data
+  data = df,
+  data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+  # set reasonable priors
+  prior = c(
+    prior(normal(0, .5), class = Intercept),
+    prior(exponential(5), class = sd),
+    prior(exponential(5), class = sigma)
+  ),
+  control = list(adapt_delta = 0.8),
+  cores = 4,
+  iter = 1
+)
+filename <- paste(here(),"/results","/fits/","m2","/","init_model",".Rds",sep="")
+saveRDS(m2,filename)
+
+m3a <- brm(
+  # formula
+  ex_rhythm_attack_time_mean ~ 1 +
+    (1 | gr(language)) +
+    (1 | gr(geospacial.pos, cov=prox_cov)) +
+    # (1 | gr(phylogeny, cov=phyl_cov)) +
+    (1 | gr(type)),
+  # data
+  data = df,
+  data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+  # set reasonable priors
+  prior = c(
+    prior(normal(0, .5), class = Intercept),
+    prior(exponential(5), class = sd),
+    prior(exponential(5), class = sigma)
+  ),
+  control = list(adapt_delta = 0.8),
+  cores = 4,
+  iter = 1
+)
+filename <- paste(here(),"/results","/fits/","m3a","/","init_model",".Rds",sep="")
+saveRDS(m3a,filename)
+
+m3b <- brm(
+  # formula
+  ex_rhythm_attack_time_mean ~ 1 +
+    (1 | gr(language)) +
+    # (1 | gr(geospacial.pos, cov=prox_cov)) +
+    (1 | gr(phylogeny, cov=phyl_cov)) +
+    (1 | gr(type)),
+  # data
+  data = df,
+  data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+  # set reasonable priors
+  prior = c(
+    prior(normal(0, .5), class = Intercept),
+    prior(exponential(5), class = sd),
+    prior(exponential(5), class = sigma)
+  ),
+  control = list(adapt_delta = 0.8),
+  cores = 4,
+  iter = 1
+)
+filename <- paste(here(),"/results","/fits/","m3b","/","init_model",".Rds",sep="")
+saveRDS(m3b,filename)
+
+
+m4 <- brm(
+  # formula
+  ex_rhythm_attack_time_mean ~ 1 +
+    (1 | gr(language)) +
+    (1 | gr(geospacial.pos, cov=prox_cov)) +
+    (1 | gr(phylogeny, cov=phyl_cov)) +
+    (1 | gr(type)),
+  # data
+  data = df,
+  data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+  # set reasonable priors
+  prior = c(
+    prior(normal(0, .5), class = Intercept),
+    prior(exponential(5), class = sd),
+    prior(exponential(5), class = sigma)
+  ),
+  control = list(adapt_delta = 0.8),
+  cores = 4,
+  iter = 1
+)
+filename <- paste(here(),"/results","/fits/","m4","/","init_model",".Rds",sep="")
+saveRDS(m4,filename)
+```
+
+
+``` {r model-fitting-made-easy}
+
+fit_or_load <- function(df, af, model_type="m4", nsamp=6000) {
+  # check if model fit already exists
+  filename <- paste(here(),"/results","/fits/",model_type,"/",af,"_n",nsamp,".Rds",sep="")
+  
+  if (file.exists(filename)) { # load existing model fit
+    print(paste("Loading from file...",filename))
+    return(readRDS(filename))
+  }
+  print(paste("No file found, fitting model... ",af))
+  
+  #### for ex_rhythm_attack_time_mean, no outlier
+  df_no <- df %>% filter(song != "NHS2-BLMM")
+  
+  # load init model
+  init_filename <- paste(here(),"/results","/fits/",model_type,"/","init_model",".Rds",sep="")
+  model <- readRDS(init_filename)
+  
+  # set acoustic feature to be fit (af) and fit model
+  model <- switch(af,
+                  ex_rhythm_attack_time_mean = update(model, # remove outlier point (NHS2-BLMM)
+                                                    ex_rhythm_attack_time_mean ~ .,
+                                                    newdata=df_no, iter=nsamp, cores=4),
+                  ex_simple_lowenergy_mean = update(model, 
+                                                    ex_simple_lowenergy_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_simple_brightness_mean = update(model, 
+                                                    ex_simple_brightness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_simple_roughness_mean = update(model, 
+                                                    ex_simple_roughness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_simple_centroid_mean = update(model, 
+                                                    ex_simple_centroid_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_centroid_mean = update(model, 
+                                                    ex_spectral_centroid_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_brightness_mean = update(model, 
+                                                    ex_spectral_brightness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_spread_mean = update(model, 
+                                                    ex_spectral_spread_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_skewness_mean = update(model, 
+                                                    ex_spectral_skewness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_kurtosis_mean = update(model, 
+                                                    ex_spectral_kurtosis_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_rolloff95_mean = update(model, 
+                                                    ex_spectral_rolloff95_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_rolloff85_mean = update(model, 
+                                                    ex_spectral_rolloff85_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_spectenropy_mean = update(model, 
+                                                    ex_spectral_spectenropy_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_flatness_mean = update(model, 
+                                                    ex_spectral_flatness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_roughness_mean = update(model, 
+                                                    ex_spectral_roughness_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_irregularity_mean = update(model, 
+                                                    ex_spectral_irregularity_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_tonal_keyclarity_mean = update(model, 
+                                                    ex_tonal_keyclarity_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_tonal_mode_mean = update(model, 
+                                                    ex_tonal_mode_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_tempo_mean = update(model, 
+                                                    ex_rhythm_tempo_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_attack_time_mean = update(model, 
+                                                    ex_rhythm_attack_time_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_attack_slope_mean = update(model, 
+                                                    ex_rhythm_attack_slope_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_dynamics_rms_mean = update(model, 
+                                                    ex_dynamics_rms_mean ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_centroid_std = update(model, 
+                                                    ex_spectral_centroid_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_brightness_std = update(model, 
+                                                    ex_spectral_brightness_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_spread_std = update(model, 
+                                                    ex_spectral_spread_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_skewness_std = update(model, 
+                                                    ex_spectral_skewness_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_kurtosis_std = update(model, 
+                                                    ex_spectral_kurtosis_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_rolloff95_std = update(model, 
+                                                    ex_spectral_rolloff95_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_rolloff85_std = update(model, 
+                                                    ex_spectral_rolloff85_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_spectenropy_std = update(model, 
+                                                    ex_spectral_spectenropy_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_flatness_std = update(model, 
+                                                    ex_spectral_flatness_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_roughness_std = update(model, 
+                                                    ex_spectral_roughness_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_spectral_irregularity_std = update(model, 
+                                                    ex_spectral_irregularity_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_tonal_keyclarity_std = update(model, 
+                                                    ex_tonal_keyclarity_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_tonal_mode_std = update(model, 
+                                                    ex_tonal_mode_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_tempo_std = update(model, 
+                                                    ex_rhythm_tempo_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_attack_time_std = update(model, 
+                                                    ex_rhythm_attack_time_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_rhythm_attack_slope_std = update(model, 
+                                                    ex_rhythm_attack_slope_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4),
+                  ex_dynamics_rms_std = update(model, 
+                                                    ex_dynamics_rms_std ~ .,
+                                                    newdata=df, iter=nsamp, cores=4)
+                  )
+  
+  # save and return
+  print("...saving model")
+  saveRDS(model, file=filename)
+  return(model)
+}
+
+## FITTING ALL THE MODELS
+# this is so much easier than before!
+model_types <- c("m1","m2","m3a","m3b","m4")
+# af_names
+
+for (af in af_names) {
+  for (m in model_types) {
+    fit_or_load(af_zscored,af,m,nsamp=6000)
+  }
+}
+
+```
+
+
+``` {r combine-ICC-file}
+model_types <- c("m1","m2","m3a","m3b","m4")
+for (af in af_names) {
+  for (m in model_types) {
+    model <- fit_or_load(af_zscored,af,m,nsamp=6000)
+    post <- as_draws_df(model)
+    
+  }
+}
+
+
+```
+
+``` {r lang-summary-plot}
+# PIE PREPROCESS
+# calculate number of songs per-family
+# 76 + 3 langauge families
+family_count <- audio_data %>% 
+  mutate(name=case_when(
+    family_id=='indo1319' ~ "Indo-European",
+    family_id=='aust1307' ~ "Austronesian",
+    family_id=='atla1278' ~ "Atlantic-Congo",
+    TRUE ~ "Other (76)")) %>%
+  group_by(name) %>%
+  summarize(n_song = n())
+
+# TREE PREPRECESS
+# calculate number of songs per language family
+lang_count <- audio_data %>% group_by(glottocode) %>% summarize(n_song = length(song))
+
+# for manually checking whether it's only IE languages in the tree
+#ie_subtree <- tree_subset(global_tree_ogname,'russ1263_Russian_Indo-European',levels_back=7)
+ie_subtree <- tree_subset(global_tree,'russ1263',levels_back=7)
+
+# create df for checking representation
+ie_df <- as_tibble(ie_subtree$tip.label) %>% rename(glottocode = value)
+ie_df <- merge(ie_df, lang_count, all.x=TRUE)
+
+ie_df <- ie_df %>% 
+  mutate(has_song = case_when(
+    !is.na(n_song) ~ TRUE,
+    .default=FALSE
+  ))
+
+# austronesian subtree
+an_subtree <- tree_subset(global_tree,'wole1240',levels_back=19)
+
+# create df for checking representation
+an_df <- as_tibble(an_subtree$tip.label) %>% rename(glottocode = value)
+an_df <- merge(an_df, lang_count, all.x=TRUE)
+
+an_df <- an_df %>% 
+  mutate(has_song = case_when(
+    !is.na(n_song) ~ TRUE,
+    .default=FALSE
+  ))
+
+# atlantic-congo subtree
+ac_subtree <- tree_subset(global_tree,'lito1235',levels_back=21)
+
+# create df for checking representation
+ac_df <- as_tibble(ac_subtree$tip.label) %>% rename(glottocode = value)
+ac_df <- merge(ac_df, lang_count, all.x=TRUE)
+
+ac_df <- ac_df %>% 
+  mutate(has_song = case_when(
+    !is.na(n_song) ~ TRUE,
+    .default=FALSE
+  ))
+
+# PLOTTING
+# pie plot
+colors <- c("#2D82B7","#42E2B8","#EB8A90","#83858C")#F3DFBF")
+# plotting
+pie_plot <- family_count %>% 
+  mutate(ord = case_when(
+    name=="Indo-European" ~ 1,
+    name=="Austronesian" ~ 2,
+    name=="Atlantic-Congo" ~ 3,
+    name=="Other (76)" ~ 4,
+  )) %>%
+  mutate(name=fct_reorder(name,ord)) %>%
+  ggplot(aes(x="",fill=name, y=n_song,label=n_song)) + 
+  geom_bar(width = 1,stat='identity', color="#333333", linewidth=.3) +
+  geom_text(position = position_stack(vjust=.45), size=2.5) + 
+  scale_fill_manual(values=colors) +
+  coord_polar("y",start=3.1*pi/2) +
+  theme_void() + 
+  labs(fill="Language Family") +
+  theme(plot.margin = unit(c(.1,.1,.1,.1),"cm"))
+
+# IE tree plot
+ie_plot <- ie_subtree %>%
+  ggtree(size=.2, layout='fan', open.angle=10) %<+% ie_df +
+ geom_fruit(
+    geom=geom_tile,
+    mapping = aes(y=Pos, fill=has_song),
+    offset=.1,
+    pwidth=.1
+    ) +
+  scale_fill_manual(values=c('white','#007700')) + #ffaaaa
+  labs(y="Indo-European") + guides(fill=FALSE) + 
+  theme(
+    panel.background=element_blank(), 
+    plot.background = element_blank(),
+    plot.margin = unit(c(.1,.1,.1,.1),"cm")
+    )
+ie_plot
+
+# AN tree plot
+an_plot <- an_subtree %>%
+  ggtree(size=.12, layout='fan', open.angle=10) %<+% an_df +
+  geom_fruit(
+    geom=geom_tile,
+    mapping = aes(y=Pos, fill=has_song),
+    offset=.1,
+    pwidth=.1
+    ) +
+  scale_fill_manual(values=c('white','#007700')) +
+  labs(y="Austronesian") + guides(fill=FALSE)  + 
+  theme(
+    panel.background=element_blank(), 
+    plot.background = element_blank(),
+    plot.margin = unit(c(.1,.1,.1,.1),"cm")
+    )
+an_plot
+
+# AC tree plot
+ac_plot <- ac_subtree %>%
+  ggtree(size=.15, layout='fan', open.angle=10) %<+% ac_df +
+  geom_fruit(
+    geom=geom_tile,
+    mapping = aes(y=Pos, fill=has_song),
+    offset=.1,
+    pwidth=.1
+    ) +
+  scale_fill_manual(values=c('white','#007700')) +
+  labs(y="Atlantic-Congo") + guides(fill=FALSE) + 
+  theme(
+    panel.background=element_blank(), 
+    plot.background = element_blank(),
+    plot.margin = unit(c(.1,.1,.1,.1),"cm")
+    )
+ac_plot
+
+# assemble the plot
+layout <- c(
+  area(t=1,b=3,l=10,r=15),
+  area(t=3,b=10,l=1,r=20)
+)
+
+trees_plot <- ie_plot + an_plot + ac_plot + plot_layout(design="ABC")
+  
+full_lang_plot <- pie_plot + trees_plot +
+  plot_layout(design=layout)
+full_lang_plot
+# ggsave("full_lang_plot.png", full_lang_plot, width=25, height=12, units = "cm")
+```
+
+``` {r func-fitting include=FALSE}
+# create function for checking 
+
+# update the model to fit different audio feature
+update_model <- function(model, data, feature) {
+  # rename feature name to match model
+  new_data <- data
+  colnames(new_data)[colnames(new_data)==feature] <- 'feature'
+  
+  # update and rerun modes
+  # iter=3000 samples
+  new_model <- update(model, newdata=new_data, cores=4, iter=3000)
+  
+  return(new_model)
+}
+
+# load model for retrieving stats or checks
+load_model <- function(feature, model_num=3) {
+  # file name
+  data_file <- paste('../data/model_fit', model_num, '/', feature, '.Rds', sep='')
+  
+  # no file error
+  if (!file.exists(data_file)) { return(FALSE) }
+  
+  # load model file
+  model <- readRDS(data_file)
+  
+  # return model
+  return(model)
+}
+```
+
+``` {r func-model-checks, include=FALSE}
+# return model prior check
+get_prior_predictive <- function(model) {
+  new_model <- update(model, cores=4, iter=3000, sample_prior='only')
+}
+
+# return draws summary
+get_sample_summary <- function(model) {
+  draws <- as_draws(model)
+  return(posterior::summarize_draws(draws))
+}
+
+# calculate ICCs
+# post: posterior samples
+# df: data frame to which to append
+# feature: name for df appending
+# top function is for "region" fit
+# bottom function is for "proximity" fit
+# rename target to calc_ICC for easy use
+calc_ICC_region <- function(post, df, feature, func=mean) {
+  # calculate explained variance for each 
+  type_sig <- post$sd_type__Intercept^2 / 
+    (post$sd_type__Intercept^2 + 
+       post$sd_phylogeny__Intercept^2 + 
+       post$sd_language__Intercept^2 + 
+       post$sd_region__Intercept^2 + 
+       post$sigma^2)
+  tsig <- func(type_sig)
+  
+  phylo_sig <- post$sd_phylogeny__Intercept^2 / 
+    (post$sd_type__Intercept^2 + 
+       post$sd_phylogeny__Intercept^2 + 
+       post$sd_language__Intercept^2 + 
+       post$sd_region__Intercept^2 + 
+       post$sigma^2)
+  psig <- func(phylo_sig)
+
+  lang_sig <- post$sd_language__Intercept^2 / 
+    (post$sd_type__Intercept^2 + 
+       post$sd_phylogeny__Intercept^2 + 
+       post$sd_language__Intercept^2 + 
+       post$sd_region__Intercept^2 + 
+       post$sigma^2)
+  lsig <- func(lang_sig)
+  
+  region_sig <- post$sd_region__Intercept^2 /
+    (post$sd_type__Intercept^2 +
+       post$sd_phylogeny__Intercept^2 +
+       post$sd_language__Intercept^2 +
+       post$sd_region__Intercept^2 +
+       post$sigma^2)
+  rsig <- func(region_sig)
+  
+  resid <- post$sigma^2 / 
+    (post$sd_type__Intercept^2 + 
+       post$sd_phylogeny__Intercept^2 + 
+       post$sd_language__Intercept^2 + 
+       post$sd_region__Intercept^2 + 
+       post$sigma^2)
+  res <- func(resid)
+  
+  # append values to df
+  df[nrow(df)+1,1:2] <- c(feature,'type')
+  df[nrow(df),3] <- tsig
+  df[nrow(df)+1,1:2] <- c(feature,'phylogeny')
+  df[nrow(df),3] <- psig
+  df[nrow(df)+1,1:2] <- c(feature,'language')
+  df[nrow(df),3] <- lsig
+  df[nrow(df)+1,1:2] <- c(feature,'region')
+  df[nrow(df),3] <- rsig
+  df[nrow(df)+1,1:2] <- c(feature,'residual')
+  df[nrow(df),3] <- res
+  
+  return(df)
+}
+
+calc_ICC <- function(post, df, feature, func=mean) {
+  # calculate explained variance for each 
+  type_sig <- post$sd_type__Intercept^2 / 
+    (post$sd_type__Intercept^2 + 
+       post$sd_phylogeny__Intercept^2 + 
+       post$sd_language__Intercept^2 + 
+       post$sd_geospacial.pos__Intercept^2 + 
+       post$sigma^2)
+  tsig <- func(type_sig)
+  
+  phylo_sig <- post$sd_phylogeny__Intercept^2 / 
+    (post$sd_type__Intercept^2 + 
+       post$sd_phylogeny__Intercept^2 + 
+       post$sd_language__Intercept^2 + 
+       post$sd_geospacial.pos__Intercept^2 + 
+       post$sigma^2)
+  psig <- func(phylo_sig)
+
+  lang_sig <- post$sd_language__Intercept^2 / 
+    (post$sd_type__Intercept^2 + 
+       post$sd_phylogeny__Intercept^2 + 
+       post$sd_language__Intercept^2 + 
+       post$sd_geospacial.pos__Intercept^2 + 
+       post$sigma^2)
+  lsig <- func(lang_sig)
+  
+  region_sig <- post$sd_geospacial.pos__Intercept^2 /
+    (post$sd_type__Intercept^2 +
+       post$sd_phylogeny__Intercept^2 +
+       post$sd_language__Intercept^2 +
+       post$sd_geospacial.pos__Intercept^2 +
+       post$sigma^2)
+  rsig <- func(region_sig)
+  
+  resid <- post$sigma^2 / 
+    (post$sd_type__Intercept^2 + 
+       post$sd_phylogeny__Intercept^2 + 
+       post$sd_language__Intercept^2 + 
+       post$sd_geospacial.pos__Intercept^2 + 
+       post$sigma^2)
+  res <- func(resid)
+  
+  # append values to df
+  df[nrow(df)+1,1:2] <- c(feature,'type')
+  df[nrow(df),3] <- tsig
+  df[nrow(df)+1,1:2] <- c(feature,'phylogeny')
+  df[nrow(df),3] <- psig
+  df[nrow(df)+1,1:2] <- c(feature,'language')
+  df[nrow(df),3] <- lsig
+  df[nrow(df)+1,1:2] <- c(feature,'proximity')
+  df[nrow(df),3] <- rsig
+  df[nrow(df)+1,1:2] <- c(feature,'residual')
+  df[nrow(df),3] <- res
+  
+  return(df)
+}
+
+# return whether all chains converged
+# otherwise which chains did not converge
+#   convergence set by threshold (thresh)
+#   for r_hat values
+check_convergence <- function(model,thresh=1.05) {
+  draws <- as_draws(model)
+  summary <- posterior::summarize_draws(draws)
+  
+  summary <- summary %>% 
+    mutate(uncov = rhat > thresh) %>%
+    select(uncov)
+
+  if (any(summary$unconv)) {
+    return(FALSE)
+  }
+  
+  return(TRUE)
+}
+
+# return 
+get_explained_var <- function(model, df) {
+  return(NULL)
+}
+```
+
+## FIT MODELS HERE ############################################################
+
+``` {r fit-models, include=FALSE}
+SAVE = FALSE
+FOLDER = "../data/model_fit9/"
+
+# create explained variance df
+ev_df <- data.frame(feature=character(), variable=character(),value=numeric(), stringsAsFactors=FALSE)
+
+# z-score the data!
+af_zscored <- audio_data_lim
+af_zscored[af_names] <- scale(af_zscored[af_names])
+colnames(af_zscored)[colnames(af_zscored)=="glottocode"] <- "language"
+colnames(af_zscored)[colnames(af_zscored)=="glottocode2"] <- "phylogeny"
+colnames(af_zscored)[colnames(af_zscored)=="glottocode3"] <- "geospacial.pos"
+
+#### DOING refit ex_rhythm_attack_time_mean w/o outlier__________________________________
+af_zscored_atmno <- af_zscored %>% filter(song != "NHS2-BLMM")
+rhym_atm_no_model <- brm(
+  # formula
+  ex_rhythm_attack_time_mean ~ 1 + # intercept
+    (1 | gr(language)) +
+    (1 | gr(phylogeny, cov=phyl_cov)) + 
+    (1 | gr(geospacial.pos, cov=prox_cov)) + 
+    #(1 | gr(region)) +
+    (1 | gr(type)),
+  # data
+  data = af_zscored_atmno,
+  data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+  # set reasonable priors
+  prior = c(
+    prior(normal(0, .5), class = Intercept),
+    prior(exponential(5), class = sd),
+    prior(exponential(5), class = sigma)
+  ),
+  control = list(adapt_delta = 0.8),
+  cores = 4,
+  iter = 6000
+) # simp_le_model
+# save it maybe
+file <- paste(FOLDER,'ex_rhythm_attack_time_mean_no_outlier','.Rds',sep="")
+if (SAVE) {saveRDS(rhym_atm_no_model, file=file)}
+
+# some post stuff
+# simp_le_prior <- get_prior_predictive(simp_le_model)
+simp_le_converge <- check_convergence(rhym_atm_no_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_atm_no_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_attack_time_mean_no')
+
+### END REFIITTING THING
+
+# setup full model (ex_simple_lowenergy_mean) __________________________________
+simp_le_model <- brm(
+  # formula
+  ex_simple_brightness_mean ~ 1 + # intercept
+    (1 | gr(language)) +
+    (1 | gr(phylogeny, cov=phyl_cov)) + 
+    (1 | gr(geospacial.pos, cov=prox_cov)) + 
+    #(1 | gr(region)) +
+    (1 | gr(type)),
+  # data
+  data = af_zscored,
+  data2 = list(phyl_cov = phyl_cov,prox_cov = prox_cov),
+  # set reasonable priors
+  prior = c(
+    prior(normal(0, .5), class = Intercept),
+    prior(exponential(5), class = sd),
+    prior(exponential(5), class = sigma)
+  ),
+  control = list(adapt_delta = 0.8),
+  cores = 4,
+  iter = 6000
+) # simp_le_model
+# save it maybe
+file <- paste(FOLDER,'ex_simple_lowenergy_mean','.Rds',sep="")
+if (SAVE) {saveRDS(simp_le_model, file=file)}
+
+# for later models
+full_model <- simp_le_model
+
+# some post stuff
+# simp_le_prior <- get_prior_predictive(simp_le_model)
+simp_le_converge <- check_convergence(simp_le_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(simp_le_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_simple_lowenergy_mean')
+
+
+# run (ex_simple_brightness_mean) __________________________________
+simp_b_model <- update(full_model, 
+                       ex_simple_brightness_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_simple_brightness_mean','.Rds',sep="")
+if (SAVE) {saveRDS(simp_b_model, file=file)}
+
+# some post stuff
+# simp_b_prior <- get_prior_predictive(simp_b_model)
+simp_b_converge <- check_convergence(simp_b_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(simp_b_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_simple_brightness_mean')
+#ev_df <- get_exp_var(simp_b_model,'ex_simple_brightness_mean',ev_df)
+
+
+# rename and run (ex_simple_roughness_mean)__________________________________
+simp_r_model <- update(full_model, 
+                       ex_simple_roughness_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_simple_roughness_mean','.Rds',sep="")
+if (SAVE) {saveRDS(simp_r_model, file=file)}
+
+# some post stuff
+# simp_r_prior <- get_prior_predictive(simp_r_model)
+simp_r_converge <- check_convergence(simp_r_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(simp_r_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_simple_roughness_mean')
+#ev_df <- get_exp_var(simp_r_model,'ex_simple_roughness_mean',ev_df)
+
+
+# rename and run (ex_simple_centroid_mean)__________________________________
+simp_c_model <- update(full_model, 
+                       ex_simple_centroid_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_simple_centroid_mean','.Rds',sep="")
+if (SAVE) {saveRDS(simp_c_model, file=file)}
+
+# some post stuff
+# simp_c_prior <- get_prior_predictive(simp_c_model)
+simp_c_converge <- check_convergence(simp_c_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(simp_c_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_simple_centroid_mean')
+#ev_df <- get_exp_var(simp_c_model,'ex_simple_centroid_mean',ev_df)
+
+
+#x rename and run (ex_spectral_centroid_mean)__________________________________
+spec_cm_model <- update(full_model, 
+                       ex_spectral_centroid_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_centroid_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_cm_model, file=file)}
+
+# some post stuff
+# spec_cm_prior <- get_prior_predictive(spec_cm_model)
+spec_cm_converge <- check_convergence(spec_cm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_cm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_centroid_mean')
+#ev_df <- get_exp_var(spec_cm_model,'ex_spectral_centroid_mean',ev_df)
+
+
+# rename and run (ex_spectral_centroid_std)__________________________________
+spec_csd_model <- update(full_model, 
+                       ex_spectral_centroid_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_centroid_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_csd_model, file=file)}
+
+# some post stuff
+# spec_csd_prior <- get_prior_predictive(spec_csd_model)
+spec_csd_converge <- check_convergence(spec_csd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_csd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_centroid_std')
+#ev_df <- get_exp_var(spec_csd_model,'ex_spectral_centroid_std',ev_df)
+
+# rename and run (ex_spectral_brightness_mean)__________________________________
+spec_bm_model <- update(full_model, 
+                       ex_spectral_brightness_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_brightness_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_bm_model, file=file)}
+
+# some post stuff
+# spec_bm_prior <- get_prior_predictive(spec_bm_model)
+spec_bm_converge <- check_convergence(spec_bm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_bm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_brightness_mean')
+#ev_df <- get_exp_var(spec_bm_model,'ex_spectral_brightness_mean',ev_df)
+
+# rename and run (ex_spectral_brightness_std)__________________________________
+spec_bsd_model <- update(full_model, 
+                       ex_spectral_brightness_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_brightness_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_bsd_model, file=file)}
+
+# some post stuff
+# spec_bsd_prior <- get_prior_predictive(spec_bsd_model)
+spec_bsd_converge <- check_convergence(spec_bsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_bsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_brightness_std')
+#ev_df <- get_exp_var(spec_bsd_model,'ex_spectral_brightness_std',ev_df)
+
+# rename and run (ex_spectral_spread_mean)__________________________________
+spec_srm_model <- update(full_model, 
+                       ex_spectral_spread_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_spread_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_srm_model, file=file)}
+
+# some post stuff
+# spec_srm_prior <- get_prior_predictive(spec_srm_model)
+spec_srm_converge <- check_convergence(spec_srm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_srm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_spread_mean')
+#ev_df <- get_exp_var(spec_srm_model,'ex_spectral_spread_mean',ev_df)
+
+# rename and run (ex_spectral_spread_std)__________________________________
+spec_srsd_model <- update(full_model, 
+                       ex_spectral_spread_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_spread_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_srsd_model, file=file)}
+
+# some post stuff
+# spec_srsd_prior <- get_prior_predictive(spec_srsd_model)
+spec_srsd_converge <- check_convergence(spec_srsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_srsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_spread_std')
+#ev_df <- get_exp_var(spec_srsd_model,'ex_spectral_spread_std',ev_df)
+
+# rename and run (ex_spectral_skewness_mean)__________________________________
+spec_skm_model <- update(full_model, 
+                       ex_spectral_skewness_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_skewness_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_skm_model, file=file)}
+
+# some post stuff
+# spec_skm_prior <- get_prior_predictive(spec_skm_model)
+spec_skm_converge <- check_convergence(spec_skm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_skm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_skewness_mean')
+#ev_df <- get_exp_var(spec_skm_model,'ex_spectral_skewness_mean',ev_df)
+
+# rename and run (ex_spectral_skewness_std)__________________________________
+spec_sksd_model <- update(full_model, 
+                       ex_spectral_skewness_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_skewness_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_sksd_model, file=file)}
+
+# some post stuff
+# spec_sksd_prior <- get_prior_predictive(spec_sksd_model)
+spec_sksd_converge <- check_convergence(spec_sksd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_sksd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_skewness_std')
+#ev_df <- get_exp_var(spec_sksd_model,'ex_spectral_skewness_std',ev_df)
+
+# rename and run (ex_spectral_kurtosis_mean)__________________________________
+spec_km_model <- update(full_model, 
+                       ex_spectral_kurtosis_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_kurtosis_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_km_model, file=file)}
+
+# some post stuff
+# spec_km_prior <- get_prior_predictive(spec_km_model)
+spec_km_converge <- check_convergence(spec_km_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_km_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_kurtosis_mean')
+#ev_df <- get_exp_var(spec_km_model,'ex_spectral_kurtosis_mean',ev_df)
+
+# rename and run (ex_spectral_kurtosis_std)__________________________________
+spec_ksd_model <- update(full_model, 
+                       ex_spectral_kurtosis_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_kurtosis_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_ksd_model, file=file)}
+
+# some post stuff
+# spec_ksd_prior <- get_prior_predictive(spec_ksd_model)
+spec_ksd_converge <- check_convergence(spec_ksd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_ksd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_kurtosis_std')
+#ev_df <- get_exp_var(spec_ksd_model,'ex_spectral_kurtosis_std',ev_df)
+
+# rename and run (ex_spectral_rolloff95_mean)__________________________________
+spec_95m_model <- update(full_model, 
+                       ex_spectral_rolloff95_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_rolloff95_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_95m_model, file=file)}
+
+# some post stuff
+# spec_95m_prior <- get_prior_predictive(spec_95m_model)
+spec_95m_converge <- check_convergence(spec_95m_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_95m_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_rolloff95_mean')
+#ev_df <- get_exp_var(spec_95m_model,'ex_spectral_rolloff95_mean',ev_df)
+
+# rename and run (ex_spectral_rolloff95_std)__________________________________
+spec_95sd_model <- update(full_model, 
+                       ex_spectral_rolloff95_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_rolloff95_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_95sd_model, file=file)}
+
+# some post stuff
+# spec_95sd_prior <- get_prior_predictive(spec_95sd_model)
+spec_95sd_converge <- check_convergence(spec_95sd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_95sd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_rolloff95_std')
+#ev_df <- get_exp_var(spec_95sd_model,'ex_spectral_rolloff95_std',ev_df)
+
+# rename and run (ex_spectral_rolloff85_mean)__________________________________
+spec_85m_model <- update(full_model, 
+                       ex_spectral_centroid_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_rolloff85_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_85m_model, file=file)}
+
+# some post stuff
+# spec_85m_prior <- get_prior_predictive(spec_85m_model)
+spec_85m_converge <- check_convergence(spec_85m_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_85m_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_rolloff85_mean')
+#ev_df <- get_exp_var(spec_85m_model,'ex_spectral_rolloff85_mean',ev_df)
+
+# rename and run (ex_spectral_rolloff85_std)__________________________________
+spec_85sd_model <- update(full_model, 
+                       ex_spectral_rolloff85_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_rolloff85_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_85sd_model, file=file)}
+
+# some post stuff
+# spec_85sd_prior <- get_prior_predictive(spec_85sd_model)
+spec_85sd_converge <- check_convergence(spec_85sd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_85sd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_rolloff85_std')
+#ev_df <- get_exp_var(spec_85sd_model,'ex_spectral_rolloff85_std',ev_df)
+
+# rename and run (ex_spectral_spectenropy_mean)__________________________________
+spec_spm_model <- update(full_model, 
+                       ex_spectral_spectenropy_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_spectenropy_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_spm_model, file=file)}
+
+# some post stuff
+# spec_spm_prior <- get_prior_predictive(spec_spm_model)
+spec_spm_converge <- check_convergence(spec_spm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_spm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_spectenropy_mean')
+#ev_df <- get_exp_var(spec_spm_model,'ex_spectral_spectenropy_mean',ev_df)
+
+# rename and run (ex_spectral_spectenropy_std)__________________________________
+spec_spsd_model <- update(full_model, 
+                       ex_spectral_spectenropy_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_spectenropy_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_spsd_model, file=file)}
+
+# some post stuff
+# spec_spsd_prior <- get_prior_predictive(spec_spsd_model)
+spec_spsd_converge <- check_convergence(spec_spsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_spsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_spectenropy_std')
+#ev_df <- get_exp_var(spec_spsd_model,'ex_spectral_spectenropy_std',ev_df)
+
+# rename and run (ex_spectral_flatness_mean)__________________________________
+spec_fm_model <- update(full_model, 
+                       ex_spectral_flatness_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_flatness_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_fm_model, file=file)}
+
+# some post stuff
+# spec_fm_prior <- get_prior_predictive(spec_fm_model)
+spec_fm_converge <- check_convergence(spec_fm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_fm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_flatness_mean')
+#ev_df <- get_exp_var(spec_fm_model,'ex_spectral_flatness_mean',ev_df)
+
+# rename and run (ex_spectral_flatness_std)__________________________________
+spec_fsd_model <- update(full_model, 
+                       ex_spectral_flatness_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_flatness_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_fsd_model, file=file)}
+
+# some post stuff
+# spec_fsd_prior <- get_prior_predictive(spec_fsd_model)
+spec_fsd_converge <- check_convergence(spec_fsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_fsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_flatness_std')
+#ev_df <- get_exp_var(spec_fsd_model,'ex_spectral_flatness_std',ev_df)
+
+# rename and run (ex_spectral_roughness_mean)__________________________________
+spec_rm_model <- update(full_model, 
+                       ex_spectral_roughness_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_roughness_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_rm_model, file=file)}
+
+# some post stuff
+# spec_rm_prior <- get_prior_predictive(spec_rm_model)
+spec_rm_converge <- check_convergence(spec_rm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_rm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_roughness_mean')
+#ev_df <- get_exp_var(spec_rm_model,'ex_spectral_roughness_mean',ev_df)
+
+# rename and run (ex_spectral_roughness_std)__________________________________
+spec_rsd_model <- update(full_model, 
+                       ex_spectral_roughness_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_roughness_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_rsd_model, file=file)}
+
+# some post stuff
+# spec_rsd_prior <- get_prior_predictive(spec_rsd_model)
+spec_rsd_converge <- check_convergence(spec_rsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_rsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_roughness_std')
+#ev_df <- get_exp_var(spec_rsd_model,'ex_spectral_roughness_std',ev_df)
+
+# rename and run (ex_spectral_irregularity_mean)__________________________________
+spec_im_model <- update(full_model, 
+                       ex_spectral_irregularity_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_irregularity_mean','.Rds',sep="")
+if (SAVE) {saveRDS(spec_im_model, file=file)}
+
+# some post stuff
+# spec_im_prior <- get_prior_predictive(spec_im_model)
+spec_im_converge <- check_convergence(spec_im_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_im_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_irregularity_mean')
+#ev_df <- get_exp_var(spec_im_model,'ex_spectral_irregularity_mean',ev_df)
+
+# rename and run (ex_spectral_irregularity_std)__________________________________
+spec_isd_model <- update(full_model, 
+                       ex_spectral_irregularity_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_spectral_irregularity_std','.Rds',sep="")
+if (SAVE) {saveRDS(spec_isd_model, file=file)}
+
+# some post stuff
+# spec_isd_prior <- get_prior_predictive(spec_isd_model)
+spec_isd_converge <- check_convergence(spec_isd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_isd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_irregularity_std')
+#ev_df <- get_exp_var(spec_isd_model,'ex_spectral_irregularity_std',ev_df)
+
+# rename and run (ex_tonal_keyclarity_mean)__________________________________
+tone_km_model <- update(full_model, 
+                       ex_tonal_keyclarity_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_tonal_keyclarity_mean','.Rds',sep="")
+if (SAVE) {saveRDS(tone_km_model, file=file)}
+
+# some post stuff
+# tone_km_prior <- get_prior_predictive(tone_km_model)
+tone_km_converge <- check_convergence(tone_km_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(tone_km_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_tonal_keyclarity_mean')
+#ev_df <- get_exp_var(tone_km_model,'ex_tonal_keyclarity_mean',ev_df)
+
+# rename and run (ex_tonal_keyclarity_std)__________________________________
+tone_ksd_model <- update(full_model, 
+                       ex_tonal_keyclarity_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_tonal_keyclarity_std','.Rds',sep="")
+if (SAVE) {saveRDS(tone_ksd_model, file=file)}
+
+# some post stuff
+# tone_ksd_prior <- get_prior_predictive(tone_ksd_model)
+tone_ksd_converge <- check_convergence(tone_ksd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(tone_ksd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_tonal_keyclarity_std')
+#ev_df <- get_exp_var(tone_ksd_model,'ex_tonal_keyclarity_std',ev_df)
+
+# rename and run (ex_tonal_mode_mean)__________________________________
+tone_mm_model <- update(full_model, 
+                       ex_tonal_mode_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_tonal_mode_mean','.Rds',sep="")
+if (SAVE) {saveRDS(tone_mm_model, file=file)}
+
+# some post stuff
+# tone_mm_prior <- get_prior_predictive(tone_mm_model)
+tone_mm_converge <- check_convergence(tone_mm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(tone_mm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_tonal_mode_mean')
+#ev_df <- get_exp_var(tone_mm_model,'ex_tonal_mode_mean',ev_df)
+
+# rename and run (ex_tonal_mode_std)__________________________________
+tone_msd_model <- update(full_model, 
+                       ex_tonal_mode_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_tonal_mode_std','.Rds',sep="")
+if (SAVE) {saveRDS(tone_msd_model, file=file)}
+
+# some post stuff
+# tone_msd_prior <- get_prior_predictive(tone_msd_model)
+tone_msd_converge <- check_convergence(tone_msd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(tone_msd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_tonal_mode_std')
+#ev_df <- get_exp_var(tone_msd_model,'ex_tonal_mode_std',ev_df)
+
+# rename and run (ex_rhythm_tempo_mean)__________________________________
+rhym_tm_model <- update(full_model, 
+                       ex_rhythm_tempo_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_rhythm_tempo_mean','.Rds',sep="")
+if (SAVE) {saveRDS(rhym_tm_model, file=file)}
+
+# some post stuff
+# rhym_tm_prior <- get_prior_predictive(rhym_tm_model)
+rhym_tm_converge <- check_convergence(rhym_tm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_tm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_tempo_mean')
+#ev_df <- get_exp_var(rhym_tm_model,'ex_rhythm_tempo_mean',ev_df)
+
+
+# rename and run (ex_rhythm_tempo_std) __________________________________
+rhym_tsd_model <- update(full_model, 
+                       ex_rhythm_tempo_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_rhythm_tempo_std','.Rds',sep="")
+if (SAVE) {saveRDS(rhym_tsd_model, file=file)}
+
+# some post stuff
+# rhym_tsd_prior <- get_prior_predictive(rhym_tsd_model)
+rhym_tsd_converge <- check_convergence(rhym_tsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_tsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_tempo_std')
+#ev_df <- get_exp_var(rhym_tsd_model,'ex_rhythm_tempo_std',ev_df)
+
+# rename and run (ex_rhythm_attack_time_mean)__________________________________
+rhym_am_model <- update(full_model, 
+                       ex_rhythm_attack_time_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_rhythm_attack_time_mean','.Rds',sep="")
+if (SAVE) {saveRDS(rhym_am_model, file=file)}
+
+# some post stuff
+# rhym_am_prior <- get_prior_predictive(rhym_am_model)
+rhym_am_converge <- check_convergence(rhym_am_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_am_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_attack_time_mean')
+#ev_df <- get_exp_var(rhym_am_model,'ex_rhythm_attack_time_mean',ev_df)
+
+# rename and run (ex_rhythm_attack_time_std)__________________________________
+rhym_asd_model <- update(full_model, 
+                       ex_rhythm_attack_time_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_rhythm_attack_time_std','.Rds',sep="")
+if (SAVE) {saveRDS(rhym_asd_model, file=file)}
+
+# some post stuff
+# rhym_asd_prior <- get_prior_predictive(rhym_asd_model)
+rhym_asd_converge <- check_convergence(rhym_asd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_asd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_attack_time_std')
+#ev_df <- get_exp_var(rhym_asd_model,'ex_rhythm_attack_time_std',ev_df)
+
+# rename and run (ex_rhythm_attack_slope_mean)__________________________________
+rhym_sm_model <- update(full_model, 
+                       ex_rhythm_attack_slope_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_rhythm_attack_slope_mean','.Rds',sep="")
+if (SAVE) {saveRDS(rhym_sm_model, file=file)}
+
+# some post stuff
+# rhym_sm_prior <- get_prior_predictive(rhym_sm_model)
+rhym_sm_converge <- check_convergence(rhym_sm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_sm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_attack_slope_mean')
+#ev_df <- get_exp_var(rhym_sm_model,'ex_rhythm_attack_slope_mean',ev_df)
+
+# rename and run (ex_rhythm_attack_slope_std)__________________________________
+rhym_ssd_model <- update(full_model, 
+                       ex_rhythm_attack_slope_std ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_rhythm_attack_slope_std','.Rds',sep="")
+if (SAVE) {saveRDS(rhym_ssd_model, file=file)}
+
+# some post stuff
+# rhym_ssd_prior <- get_prior_predictive(rhym_ssd_model)
+rhym_ssd_converge <- check_convergence(rhym_ssd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_ssd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_attack_slope_std')
+#ev_df <- get_exp_var(rhym_ssd_model,'ex_rhythm_attack_slope_std',ev_df)
+
+# rename and run (ex_dynamics_rms_mean)__________________________________
+dyna_rm_model <- update(full_model, 
+                       ex_dynamics_rms_mean ~ ., 
+                       newdata=af_zscored, 
+                       cores=4)
+file <- paste(FOLDER,'ex_dynamics_rms_mean','.Rds',sep="")
+if (SAVE) {saveRDS(dyna_rm_model, file=file)}
+
+# some post stuff
+# dyna_rm_prior <- get_prior_predictive(dyna_rm_model)
+dyna_rm_converge <- check_convergence(dyna_rm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(dyna_rm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_dynamics_rms_mean')
+#ev_df <- get_exp_var(dyna_rm_model,'ex_dynamics_rms_mean',ev_df)
+
+```
+
+## LOAD MODELS HERE ###########################################################
+
+``` {r load-models, include=FALSE}
+FOLDER <- "../data/model_fit9/"
+
+ev_df <- data.frame(feature=character(), variable=character(),value=numeric(), stringsAsFactors=FALSE)
+ev_df_max <- data.frame(feature=character(), variable=character(),value=numeric(), stringsAsFactors=FALSE)
+
+# setup full model (ex_simple_lowenergy_mean) __________________________________
+file <- paste(FOLDER,'ex_simple_lowenergy_mean','.Rds',sep="")
+simp_le_model <- readRDS(file)
+
+# some post stuff
+# simp_le_prior <- get_prior_predictive(simp_le_model)
+# simp_le_converge <- check_convergence(simp_le_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(simp_le_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_simple_lowenergy_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_simple_lowenergy_mean')
+
+
+# run (ex_simple_brightness_mean) __________________________________
+file <- paste(FOLDER,'ex_simple_brightness_mean','.Rds',sep="")
+simp_b_model <- readRDS(file)
+
+# some post stuff
+# simp_b_prior <- get_prior_predictive(simp_b_model)
+# simp_b_converge <- check_convergence(simp_b_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(simp_b_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_simple_brightness_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_simple_brightness_mean')
+
+
+# rename and run (ex_simple_roughness_mean)__________________________________
+file <- paste(FOLDER,'ex_simple_roughness_mean','.Rds',sep="")
+simp_r_model <- readRDS(file)
+
+# some post stuff
+# simp_r_prior <- get_prior_predictive(simp_r_model)
+# simp_r_converge <- check_convergence(simp_r_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(simp_r_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_simple_roughness_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_simple_roughness_mean')
+
+
+# rename and run (ex_simple_centroid_mean)__________________________________
+file <- paste(FOLDER,'ex_simple_centroid_mean','.Rds',sep="")
+simp_c_model <- readRDS(file)
+
+# some post stuff
+# simp_c_prior <- get_prior_predictive(simp_c_model)
+# simp_c_converge <- check_convergence(simp_c_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(simp_c_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_simple_centroid_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_simple_centroid_mean')
+
+
+# rename and run (ex_spectral_centroid_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_centroid_mean','.Rds',sep="")
+spec_cm_model <- readRDS(file)
+
+# some post stuff
+# spec_cm_prior <- get_prior_predictive(spec_cm_model)
+# spec_cm_converge <- check_convergence(spec_cm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_cm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_centroid_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_centroid_mean')
+
+
+# rename and run (ex_spectral_centroid_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_centroid_std','.Rds',sep="")
+spec_csd_model <- readRDS(file)
+
+# some post stuff
+# spec_csd_prior <- get_prior_predictive(spec_csd_model)
+# spec_csd_converge <- check_convergence(spec_csd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_csd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_centroid_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_centroid_std')
+
+# rename and run (ex_spectral_brightness_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_brightness_mean','.Rds',sep="")
+spec_bm_model <- readRDS(file)
+
+# some post stuff
+# spec_bm_prior <- get_prior_predictive(spec_bm_model)
+# spec_bm_converge <- check_convergence(spec_bm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_bm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_brightness_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_brightness_mean')
+
+# rename and run (ex_spectral_brightness_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_brightness_std','.Rds',sep="")
+spec_bsd_model <- readRDS(file)
+
+# some post stuff
+# spec_bsd_prior <- get_prior_predictive(spec_bsd_model)
+# spec_bsd_converge <- check_convergence(spec_bsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_bsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_brightness_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_brightness_std')
+
+# rename and run (ex_spectral_spread_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_spread_mean','.Rds',sep="")
+spec_srm_model <- readRDS(file)
+
+# some post stuff
+# spec_srm_prior <- get_prior_predictive(spec_srm_model)
+# spec_srm_converge <- check_convergence(spec_srm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_srm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_spread_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_spread_mean')
+
+# rename and run (ex_spectral_spread_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_spread_std','.Rds',sep="")
+spec_srsd_model <- readRDS(file)
+
+# some post stuff
+# spec_srsd_prior <- get_prior_predictive(spec_srsd_model)
+# spec_srsd_converge <- check_convergence(spec_srsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_srsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_spread_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_spread_std')
+
+# rename and run (ex_spectral_skewness_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_skewness_mean','.Rds',sep="")
+spec_skm_model <- readRDS(file)
+
+# some post stuff
+# spec_skm_prior <- get_prior_predictive(spec_skm_model)
+# spec_skm_converge <- check_convergence(spec_skm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_skm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_skewness_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_skewness_mean')
+
+# rename and run (ex_spectral_skewness_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_skewness_std','.Rds',sep="")
+spec_sksd_model <- readRDS(file)
+
+# some post stuff
+# spec_sksd_prior <- get_prior_predictive(spec_sksd_model)
+# spec_sksd_converge <- check_convergence(spec_sksd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_sksd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_skewness_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_skewness_std')
+
+# rename and run (ex_spectral_kurtosis_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_kurtosis_mean','.Rds',sep="")
+spec_km_model <- readRDS(file)
+
+# some post stuff
+# spec_km_prior <- get_prior_predictive(spec_km_model)
+# spec_km_converge <- check_convergence(spec_km_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_km_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_kurtosis_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_kurtosis_mean')
+
+# rename and run (ex_spectral_kurtosis_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_kurtosis_std','.Rds',sep="")
+spec_ksd_model <- readRDS(file)
+
+# some post stuff
+# spec_ksd_prior <- get_prior_predictive(spec_ksd_model)
+# spec_ksd_converge <- check_convergence(spec_ksd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_ksd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_kurtosis_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_kurtosis_std')
+
+# rename and run (ex_spectral_rolloff95_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_rolloff95_mean','.Rds',sep="")
+spec_95m_model <- readRDS(file)
+
+# some post stuff
+# spec_95m_prior <- get_prior_predictive(spec_95m_model)
+# spec_95m_converge <- check_convergence(spec_95m_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_95m_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_rolloff95_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_rolloff95_mean')
+
+# rename and run (ex_spectral_rolloff95_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_rolloff95_std','.Rds',sep="")
+spec_95sd_model <- readRDS(file)
+
+# some post stuff
+# spec_95sd_prior <- get_prior_predictive(spec_95sd_model)
+# spec_95sd_converge <- check_convergence(spec_95sd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_95sd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_rolloff95_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_rolloff95_std')
+
+# rename and run (ex_spectral_rolloff85_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_rolloff85_mean','.Rds',sep="")
+spec_85m_model <- readRDS(file)
+
+# some post stuff
+# spec_85m_prior <- get_prior_predictive(spec_85m_model)
+# spec_85m_converge <- check_convergence(spec_85m_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_85m_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_rolloff85_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_rolloff85_mean')
+
+# rename and run (ex_spectral_rolloff85_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_rolloff85_std','.Rds',sep="")
+spec_85sd_model <- readRDS(file)
+
+# some post stuff
+# spec_85sd_prior <- get_prior_predictive(spec_85sd_model)
+# spec_85sd_converge <- check_convergence(spec_85sd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_85sd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_rolloff85_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_rolloff85_std')
+
+# rename and run (ex_spectral_spectenropy_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_spectenropy_mean','.Rds',sep="")
+spec_spm_model <- readRDS(file)
+
+# some post stuff
+# spec_spm_prior <- get_prior_predictive(spec_spm_model)
+# spec_spm_converge <- check_convergence(spec_spm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_spm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_spectenropy_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_spectenropy_mean')
+
+# rename and run (ex_spectral_spectenropy_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_spectenropy_std','.Rds',sep="")
+spec_spsd_model <- readRDS(file)
+
+# some post stuff
+# spec_spsd_prior <- get_prior_predictive(spec_spsd_model)
+# spec_spsd_converge <- check_convergence(spec_spsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_spsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_spectenropy_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_spectenropy_std')
+
+# rename and run (ex_spectral_flatness_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_flatness_mean','.Rds',sep="")
+spec_fm_model <- readRDS(file)
+
+# some post stuff
+# spec_fm_prior <- get_prior_predictive(spec_fm_model)
+# spec_fm_converge <- check_convergence(spec_fm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_fm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_flatness_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_flatness_mean')
+
+# rename and run (ex_spectral_flatness_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_flatness_std','.Rds',sep="")
+spec_fsd_model <- readRDS(file)
+
+# some post stuff
+# spec_fsd_prior <- get_prior_predictive(spec_fsd_model)
+# spec_fsd_converge <- check_convergence(spec_fsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_fsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_flatness_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_flatness_std')
+
+# rename and run (ex_spectral_roughness_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_roughness_mean','.Rds',sep="")
+spec_rm_model <- readRDS(file)
+
+# some post stuff
+# spec_rm_prior <- get_prior_predictive(spec_rm_model)
+# spec_rm_converge <- check_convergence(spec_rm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_rm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_roughness_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_roughness_mean')
+
+# rename and run (ex_spectral_roughness_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_roughness_std','.Rds',sep="")
+spec_rsd_model <- readRDS(file)
+
+# some post stuff
+# spec_rsd_prior <- get_prior_predictive(spec_rsd_model)
+# spec_rsd_converge <- check_convergence(spec_rsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_rsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_roughness_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_roughness_std')
+
+# rename and run (ex_spectral_irregularity_mean)__________________________________
+file <- paste(FOLDER,'ex_spectral_irregularity_mean','.Rds',sep="")
+spec_im_model <- readRDS(file)
+
+# some post stuff
+# spec_im_prior <- get_prior_predictive(spec_im_model)
+# spec_im_converge <- check_convergence(spec_im_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_im_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_irregularity_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_irregularity_mean')
+
+# rename and run (ex_spectral_irregularity_std)__________________________________
+file <- paste(FOLDER,'ex_spectral_irregularity_std','.Rds',sep="")
+spec_isd_model <- readRDS(file)
+
+# some post stuff
+# spec_isd_prior <- get_prior_predictive(spec_isd_model)
+# spec_isd_converge <- check_convergence(spec_isd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(spec_isd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_spectral_irregularity_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_spectral_irregularity_std')
+
+# rename and run (ex_tonal_keyclarity_mean)__________________________________
+file <- paste(FOLDER,'ex_tonal_keyclarity_mean','.Rds',sep="")
+tone_km_model <- readRDS(file)
+
+# some post stuff
+# tone_km_prior <- get_prior_predictive(tone_km_model)
+# tone_km_converge <- check_convergence(tone_km_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(tone_km_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_tonal_keyclarity_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_tonal_keyclarity_mean')
+
+# rename and run (ex_tonal_keyclarity_std)__________________________________
+file <- paste(FOLDER,'ex_tonal_keyclarity_std','.Rds',sep="")
+tone_ksd_model <- readRDS(file)
+
+# some post stuff
+# tone_ksd_prior <- get_prior_predictive(tone_ksd_model)
+# tone_ksd_converge <- check_convergence(tone_ksd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(tone_ksd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_tonal_keyclarity_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_tonal_keyclarity_std')
+
+# rename and run (ex_tonal_mode_mean)__________________________________
+file <- paste(FOLDER,'ex_tonal_mode_mean','.Rds',sep="")
+tone_mm_model <- readRDS(file)
+
+# some post stuff
+# tone_mm_prior <- get_prior_predictive(tone_mm_model)
+# tone_mm_converge <- check_convergence(tone_mm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(tone_mm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_tonal_mode_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_tonal_mode_mean')
+
+# rename and run (ex_tonal_mode_std)__________________________________
+file <- paste(FOLDER,'ex_tonal_mode_std','.Rds',sep="")
+tone_msd_model <- readRDS(file)
+
+# some post stuff
+# tone_msd_prior <- get_prior_predictive(tone_msd_model)
+# tone_msd_converge <- check_convergence(tone_msd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(tone_msd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_tonal_mode_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_tonal_mode_std')
+
+# rename and run (ex_rhythm_tempo_mean)__________________________________
+file <- paste(FOLDER,'ex_rhythm_tempo_mean','.Rds',sep="")
+rhym_tm_model <- readRDS(file)
+
+# some post stuff
+# rhym_tm_prior <- get_prior_predictive(rhym_tm_model)
+# rhym_tm_converge <- check_convergence(rhym_tm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_tm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_tempo_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_rhythm_tempo_mean')
+
+
+# rename and run (ex_rhythm_tempo_std) __________________________________
+file <- paste(FOLDER,'ex_rhythm_tempo_std','.Rds',sep="")
+rhym_tsd_model <- readRDS(file)
+
+# some post stuff
+# rhym_tsd_prior <- get_prior_predictive(rhym_tsd_model)
+# rhym_tsd_converge <- check_convergence(rhym_tsd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_tsd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_tempo_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_rhythm_tempo_std')
+
+# rename and run (ex_rhythm_attack_time_mean)__________________________________
+file <- paste(FOLDER,'ex_rhythm_attack_time_mean_no_outlier','.Rds',sep="")
+rhym_am_model <- readRDS(file)
+
+# some post stuff
+# rhym_am_prior <- get_prior_predictive(rhym_am_model)
+# rhym_am_converge <- check_convergence(rhym_am_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_am_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_attack_time_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_rhythm_attack_time_mean')
+
+# rename and run (ex_rhythm_attack_time_std)__________________________________
+file <- paste(FOLDER,'ex_rhythm_attack_time_std','.Rds',sep="")
+rhym_asd_model <- readRDS(file)
+
+# some post stuff
+# rhym_asd_prior <- get_prior_predictive(rhym_asd_model)
+# rhym_asd_converge <- check_convergence(rhym_asd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_asd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_attack_time_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_rhythm_attack_time_std')
+
+# rename and run (ex_rhythm_attack_slope_mean)__________________________________
+file <- paste(FOLDER,'ex_rhythm_attack_slope_mean','.Rds',sep="")
+rhym_sm_model <- readRDS(file)
+
+# some post stuff
+# rhym_sm_prior <- get_prior_predictive(rhym_sm_model)
+# rhym_sm_converge <- check_convergence(rhym_sm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_sm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_attack_slope_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_rhythm_attack_slope_mean')
+
+# rename and run (ex_rhythm_attack_slope_std)__________________________________
+file <- paste(FOLDER,'ex_rhythm_attack_slope_std','.Rds',sep="")
+rhym_ssd_model <- readRDS(file)
+
+# some post stuff
+# rhym_ssd_prior <- get_prior_predictive(rhym_ssd_model)
+# rhym_ssd_converge <- check_convergence(rhym_ssd_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(rhym_ssd_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_rhythm_attack_slope_std')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_rhythm_attack_slope_std')
+
+# rename and run (ex_dynamics_rms_mean)__________________________________
+file <- paste(FOLDER,'ex_dynamics_rms_mean','.Rds',sep="")
+dyna_rm_model <- readRDS(file)
+
+# some post stuff
+# dyna_rm_prior <- get_prior_predictive(dyna_rm_model)
+# dyna_rm_converge <- check_convergence(dyna_rm_model)
+
+# appened explained variance to ev_df
+samples <- as_draws_df(dyna_rm_model)
+max_samp <- samples[samples$lp__ %in% c(max(samples$lp__)),]
+
+ev_df <- calc_ICC(samples, ev_df, 'ex_dynamics_rms_mean')
+ev_df_max <- calc_ICC(max_samp, ev_df_max, 'ex_dynamics_rms_mean')
+
+```
+
+``` {r plot-explained-variance}
+p1 <- ev_df %>% mutate(var_ord = case_when(
+  variable=='type'~1,
+  variable=='phylogeny'~2,
+  variable=='language'~3,
+  variable=='proximity'~4,
+  variable=='residual'~5,
+  )) %>%
+ # mutate(variable=fct_reorder(variable,-var_ord)) %>%
+  arrange(var_ord) %>%
+  ggplot(aes(fill=variable,y=feature,x=value,label=signif(value,digits=3))) + geom_bar(stat="identity") +
+  scale_fill_discrete(type=c('#FF7676','#80B3FF','#43A680','#74F6A7','#0F7173')) +
+  xlim(0,1.01) + labs(title="explained variance of acoustic features (mean, fit#9)", fill="explaining var") + xlab("variance")
+
+p2 <- ev_df_max %>% mutate(var_ord = case_when(
+  variable=='type'~1,
+  variable=='phylogeny'~2,
+  variable=='language'~3,
+  variable=='proximity'~4,
+  variable=='residual'~5,
+  )) %>%
+ mutate(variable=fct_reorder(variable,-var_ord)) %>%
+  ggplot(aes(y=feature,x=value,fill=variable,label=signif(value,digits=3))) + geom_bar(stat="identity") +
+  scale_fill_discrete(type=c('#FF7676','#80B3FF','#43A680','#74F6A7','#0F7173')) +
+  xlim(0,1.01) + labs(title="explained variance of acoustic features (MLP, fit#9)", fill="explaining var") + xlab("variance")
+
+p1 # mean sample
+p2 # mlp sample
+p <- p1/p2
+p
+ggsave('../viz/explained_variance_9_mean.png',plot=p1, height=5)
+
+```
+
+``` {r investigate-models-func}
+# get all model samples in one df
+get_all_model_samples <- function() {
+  return(0) #TODO
+}
+
+
+# model in, plot of exp var distributions out
+plot_model_expvar <- function(model, fit, af_name, prox=TRUE) {
+  plt_title <- paste(af_name, "fit#", fit)
+  
+  # get samples from model
+  samples <- as_draws_df(model) %>%
+  mutate(llhood = lp__ - lprior)
+  
+  # posterior summary (label quartiles)
+  sumr <- brms::posterior_summary(samples)
+  # log poisterior
+  llq25 <- sumr['llhood','Q2.5']
+  llq975 <- sumr['llhood','Q97.5']
+  
+  # density for log_post
+  samples <- samples %>%
+    mutate(llquart = case_when(
+      llhood <= llq25 ~ 'low 2.5',
+      llhood <= llq975 ~ 'mid',
+      .default = 'hi 2.5'
+    ))
+  
+  # renaming
+  samples <- samples %>%
+    rename(
+      proximity = sd_geospacial.pos__Intercept,
+      language = sd_language__Intercept,
+      phylogeny = sd_phylogeny__Intercept,
+      type = sd_type__Intercept,
+      residual = sigma
+    )
+
+  # turn into long format for sd classes
+  smp <- samples %>% 
+    pivot_longer(proximity:residual, names_to="variable", values_to="sd") %>%
+    select(variable, sd, llquart)
+  
+  # plot
+  plt <- smp %>%
+    mutate(var_ord = case_when( # ordering for quarts
+      llquart=='low 2.5'~1,
+      llquart=='mid'~2,
+      llquart=='hi 2.5'~3,
+      )) %>% 
+    mutate(llquart=fct_reorder(llquart,-var_ord)) %>%
+    mutate(var_ord = case_when( # ordering for variables
+      variable=='type'~1,
+      variable=='phylogeny'~2,
+      variable=='language'~3,
+      variable=='proximity'~4,
+      variable=='residual'~5,
+    )) %>%
+   mutate(variable=fct_reorder(variable,var_ord)) %>%
+    ggplot(aes(x=sd, fill=llquart)) + # plotting
+    geom_density(alpha=.5) +
+    facet_grid(rows=vars(variable)) +
+    labs(title=plt_title, x="SD estimate", y="", fill="LogLikelihood %ile") +
+    theme(
+      axis.ticks.y = element_blank(),
+      axis.text.y = element_blank()
+    ) +
+    theme_classic()
+  
+  # return plot
+  return(plt)
+}
+
+# model in, plot of type intercept
+plot_model_typeint <- function(model, fit, af_name, prox=TRUE) {
+  plt_title <- paste(af_name, "fit#", fit)
+  
+  # get samples from model
+  samples <- as_draws_df(model) %>%
+  mutate(llhood = lp__ - lprior)
+  
+  # posterior summary (label quartiles)
+  sumr <- brms::posterior_summary(samples)
+  # log poisterior
+  llq25 <- sumr['llhood','Q2.5']
+  llq975 <- sumr['llhood','Q97.5']
+  
+  # density for log_post
+  samples <- samples %>%
+    mutate(llquart = case_when(
+      llhood <= llq25 ~ 'low 2.5',
+      llhood <= llq975 ~ 'mid',
+      .default = 'hi 2.5'
+    ))
+  
+  # renaming
+  samples <- samples %>%
+    rename(
+      dance = 'r_type[Dance,Intercept]',
+      healing = 'r_type[Healing,Intercept]',
+      love = 'r_type[Love,Intercept]',
+      lullaby = 'r_type[Lullaby,Intercept]',
+      mourning = 'r_type[Mourning,Intercept]',
+      play = 'r_type[Play,Intercept]',
+      praise = 'r_type[Praise,Intercept]',
+      procession = 'r_type[Procession,Intercept]',
+      story = 'r_type[Story,Intercept]',
+      work = 'r_type[Work,Intercept]'
+    )
+
+  # turn into long format for type variables
+  smp <- samples %>% 
+    pivot_longer(dance:work, names_to="variable", values_to="estimate") %>%
+    select(variable, estimate, llquart)
+    
+  # plot
+  plt <- smp %>%
+    mutate(var_ord = case_when( # ordering for quarts
+      llquart=='low 2.5'~1,
+      llquart=='mid'~2,
+      llquart=='hi 2.5'~3,
+      )) %>% 
+    mutate(llquart=fct_reorder(llquart,-var_ord)) %>%
+    ggplot(aes(y=estimate, fill=llquart)) + # plotting
+    geom_density(alpha=.5, orientation="y") +
+    facet_grid(cols=vars(variable)) +
+    geom_hline(yintercept = 0) +
+    labs(title=plt_title, y="Intercept estimate", x="", fill="LogLikelihood %ile") +
+    theme(
+      axis.ticks.x = element_blank(),
+      axis.text.x = element_blank()
+    ) + 
+    theme_classic()
+
+  # return plot
+  return(plt)
+}
+
+```
+
+``` {r investigate-models}
+model <- simp_r_model
+samples <- as_draws_df(model) %>%
+  mutate(llhood = lp__ - lprior)
+
+# compare by log_like quartiles
+mi3 <- plot_model_expvar(simp_r_model, 4, "ex_simple_roughness_mean")
+mi3a <- plot_model_expvar(simp_b_model, 4, "ex_simple_brightness_mean")
+mi3b <- plot_model_expvar(simp_c_model, 4, "ex_simple_centroid_mean")
+mi3c <- plot_model_expvar(simp_le_model, 4, "ex_simple_lowenergy_mean")
+mii <- mi3 + mi3a + mi3b + mi3c + plot_layout(guides="collect", ncol=2)
+mii
+ggsave("testing.png", plot=mii)
+
+# compare different song type intercepts 
+mi4 <- plot_model_typeint(simp_r_model, 4, "ex_simple_roughness_mean")
+mi4a <- plot_model_typeint(simp_b_model, 4, "ex_simple_brightness_mean")
+mi4b <- plot_model_typeint(simp_c_model, 4, "ex_simple_centroid_mean")
+mi4c <- plot_model_typeint(simp_le_model, 4, "ex_simple_lowenergy_mean")
+mi4 / mi4a / mi4b / mi4c
+
+plot_model_expvar(rhym_am_model, 9, "ex_rhythm_attack_mean")
+```
+
+``` {r testing-plots}
+model <- rhym_am_model
+
+# get samples from model
+samples <- as_draws_df(model) %>%
+  mutate(llhood = lp__ - lprior)
+
+# posterior summary (label quartiles)
+sumr <- brms::posterior_summary(samples)
+# log poisterior
+llq25 <- sumr['llhood','Q2.5']
+llq975 <- sumr['llhood','Q97.5']
+
+# density for log_post
+samples <- samples %>%
+  mutate(llquart = case_when(
+    llhood <= llq25 ~ 'low 2.5',
+    llhood <= llq975 ~ 'mid',
+    .default = 'hi 2.5'
+  ))
+
+# renaming
+samples <- samples %>%
+  rename(
+    proximity = sd_geospacial.pos__Intercept,
+    language = sd_language__Intercept,
+    phylogeny = sd_phylogeny__Intercept,
+    type = sd_type__Intercept,
+    residual = sigma
+  )
+
+# turn into long format for sd classes
+smp <- samples %>% 
+  pivot_longer(proximity:residual, names_to="variable", values_to="sd") %>%
+  select(variable, sd, llquart)
+
+plt_title <- "testing title"
+# plot
+plt <- smp %>%
+  mutate(var_ord = case_when( # ordering for quarts
+    llquart=='low 2.5'~1,
+    llquart=='mid'~2,
+    llquart=='hi 2.5'~3,
+    )) %>% 
+  mutate(llquart=fct_reorder(llquart,-var_ord)) %>%
+  mutate(var_ord = case_when( # ordering for variables
+    variable=='type'~1,
+    variable=='phylogeny'~2,
+    variable=='language'~3,
+    variable=='proximity'~4,
+    variable=='residual'~5,
+  )) %>%
+ mutate(variable=fct_reorder(variable,var_ord)) %>%
+  ggplot(aes(x=sd, fill=variable)) + # plotting
+  geom_density(alpha=.5) +
+  #facet_grid(rows=vars(variable)) +
+  labs(title=plt_title, x="SD estimate", y="", fill="type") +
+  theme(
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank()
+  ) +
+  theme_classic() + scale_fill_discrete(type=c('#0F7173','#74F6A7','#43A680','#80B3FF','#FF7676'))
+
+legend <- get_legend(plt)
+
+plt
+```
+
+``` {r plot-all-models-for-a-type}
+plot_single_type<- function(model, af_name) {
+  samples <- as_draws_df(model)
+  # renaming
+  samples <- samples %>%
+    rename(
+      proximity = sd_geospacial.pos__Intercept,
+      language = sd_language__Intercept,
+      phylogeny = sd_phylogeny__Intercept,
+      type = sd_type__Intercept,
+      residual = sigma,
+      dance = 'r_type[Dance,Intercept]',
+      healing = 'r_type[Healing,Intercept]',
+      love = 'r_type[Love,Intercept]',
+      lullaby = 'r_type[Lullaby,Intercept]',
+      mourning = 'r_type[Mourning,Intercept]',
+      play = 'r_type[Play,Intercept]',
+      praise = 'r_type[Praise,Intercept]',
+      procession = 'r_type[Procession,Intercept]',
+      story = 'r_type[Story,Intercept]',
+      work = 'r_type[Work,Intercept]'
+    ) 
+  
+  # turn into long format for sd classes
+  smp <- samples %>% 
+    pivot_longer(proximity:residual, names_to="variable", values_to="sd") %>%
+    select(variable, sd)
+  
+  # individual plots
+  p1 <- smp %>%
+    mutate(var_ord = case_when( # ordering for variables
+      variable=='type'~1,
+      variable=='phylogeny'~2,
+      variable=='language'~3,
+      variable=='proximity'~4,
+      variable=='residual'~5,
+    )) %>%
+   mutate(variable=fct_reorder(variable,var_ord)) %>%
+    ggplot(aes(x=sd, fill=variable)) + geom_density(alpha=.7) + 
+    theme_minimal_vgrid() + labs(y="", x="", title=af_name) + #xlim(0,1.00) +
+    theme(
+      axis.text.y=element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.ticks.x = element_blank(),
+      plot.title = element_text(size=12)
+    ) + 
+    scale_fill_discrete(type=c('#0F7173','#74F6A7','#43A680','#80B3FF','#FF7676'))
+  return(p1)
+}
+
+plt1 <- plot_single_type(simp_le_model, "ex_simple_lowenergy_mean") +
+  plot_single_type(simp_b_model, "ex_simple_brightness_mean") +
+  plot_single_type(simp_r_model, "ex_simple_roughness_mean") +
+  plot_single_type(simp_c_model, "ex_simple_centroid_mean") +
+  plot_single_type(spec_cm_model, "ex_spectral_centroid_mean") +
+  plot_single_type(spec_csd_model, "ex_spectral_centroid_std") +
+  plot_single_type(spec_bm_model, "ex_spectral_brightness_mean") +
+  plot_single_type(spec_bsd_model, "ex_spectral_brightness_std") +
+  plot_single_type(spec_srm_model, "ex_spectral_spread_mean") +
+  plot_single_type(spec_srsd_model, "ex_spectral_spread_std") +
+  plot_single_type(spec_skm_model, "ex_spectral_skewness_mean") +
+  plot_single_type(spec_sksd_model, "ex_spectral_skewness_std") +
+  plot_single_type(spec_km_model, "ex_spectral_kurtosis_mean") +
+  plot_single_type(spec_ksd_model, "ex_spectral_kurtosis_std") +
+  plot_single_type(spec_95m_model, "ex_spectral_rolloff95_mean") +
+  plot_single_type(spec_95sd_model, "ex_spectral_rolloff95_std") +
+  plot_single_type(spec_85m_model, "ex_spectral_rolloff85_mean") +
+  plot_single_type(spec_85sd_model, "ex_spectral_rolloff85_std") +
+  plot_single_type(spec_spm_model, "ex_spectral_spectenropy_mean") +
+  plot_single_type(spec_spsd_model, "ex_spectral_spectenropy_std") +
+  plot_single_type(spec_fm_model, "ex_spectral_flatness_mean") +
+  plot_single_type(spec_fsd_model, "ex_spectral_flatness_std") +
+  plot_single_type(spec_rm_model, "ex_spectral_roughness_mean") +
+  plot_single_type(spec_rsd_model, "ex_spectral_roughness_std") +
+  plot_single_type(spec_im_model, "ex_spectral_irregularity_mean") +
+  plot_single_type(spec_isd_model, "ex_spectral_irregularity_std") +
+  plot_single_type(tone_km_model, "ex_tonal_keyclarity_mean") +
+  plot_single_type(tone_ksd_model, "ex_tonal_keyclarity_std") +
+  plot_single_type(tone_mm_model, "ex_tonal_mode_mean") +
+  plot_single_type(tone_msd_model, "ex_tonal_mode_std") +
+  plot_single_type(rhym_tm_model, "ex_rhythm_tempo_mean") +
+  plot_single_type(rhym_tsd_model, "ex_rhythm_tempo_std") +
+  plot_single_type(rhym_am_model, "ex_rhythm_attack_time_mean") +
+  plot_single_type(rhym_asd_model, "ex_rhythm_attack_time_std") +
+  plot_single_type(rhym_sm_model, "ex_rhythm_attack_slope_mean") +
+  plot_single_type(rhym_ssd_model, "ex_rhythm_attack_slope_std") +
+  plot_layout(ncol=1, guides="collect")
+
+ggsave("testing.png", plot=plt1, units="in", height=49)
+```

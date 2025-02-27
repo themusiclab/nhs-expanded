@@ -1,0 +1,512 @@
+``` {r setup, include=FALSE}
+library(tidyverse)
+library(stringr)
+library(patchwork)
+library(cowplot)
+library(glmnet)
+library(knitr)
+library(tidymodels)
+library(vip)
+library(foreach)
+library(here)
+library(doParallel)
+set.seed(1)
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, results = FALSE)
+
+# parallel processing across machine cores to speed things up 
+doParallel::registerDoParallel()
+```
+
+``` {r load-data, inlcude=FALSE}
+# load nhs2 corpus
+nhs2 <- read.csv('../data/metadata.csv', skip = 0, header = TRUE)
+
+# load glottolog and add family_id + geolocation
+# glog <- read.csv('../data/languoidGlottolog.csv', skip = 0, header = TRUE)
+# colnames(glog)[colnames(glog)=='id'] <- 'glottocode'
+# nhs2 <- merge(nhs2, glog[c('glottocode','family_id','latitude','longitude')])
+# rm(glog)
+
+# load audio features and merge with nhs2
+audio_feats <- read.csv('../data/audio_Extraction_raw_median_all.csv', skip = 0, header = TRUE)
+af_names <- colnames(audio_feats)[-1]
+nhs2 <- merge(nhs2, audio_feats, by.x="song")
+rm(audio_feats)
+```
+
+``` {r lasso-bootstrapped-functions}
+# generate new dataset by bootstrapping equally across types
+# returns bootstrapped nsamp number of type:type_list[i] form df
+bootstrap_data_by_type <- function(df,type_list,i,nsamp) {
+  itype <- type_list[i]
+  # print(itype)
+  df_boot <- df %>%
+    filter(type==itype)
+  booted <- df_boot[sample(nrow(df_boot), size=nsamp, replace=TRUE),]
+  return(booted)
+}
+
+# fitting LASSO model with bootstrapped data (to use with foreach(i=1:...))
+# returns a single prediction for each song in the test data
+# estimates penalty parameter from data
+# wf: workflow for preprocess+model
+# df_train: training data to bootstrap by type
+# df_test: validation data to predict type
+# type_list: possible types (mir4 vs mir10)
+# boot_num: number (i) for naming prediction "Bootstrap_i_Ss"
+fit_with_boot <- function(wf, df_train, df_test, type_list, boot_num, nboots, part_num, nparts, s) {
+  cat(paste("\n======================TRAINING=======================\t",
+            "\tpart:\t", part_num, "/", nparts,
+            "\tboot:\t", boot_num, "/", nboots, sep=""), file=stdout())
+
+  # generate bootstrapped data
+  df_boot <- foreach(i=1:length(type_list), .combine=rbind) %do% 
+    bootstrap_data_by_type(df_train, type_list, i, round(nrow(df_train)/length(type_list)))
+  
+  # create CV fold for lamda estimation
+  df_fold <- vfold_cv(df_train, v=10)
+  
+  # test lambda/penalty values
+  test_lambdas <- grid_regular(penalty(), levels = 10)
+  # set.seed(1234)
+  lasso_grid <- tune_grid(
+      wf,
+      resamples = df_fold,
+      grid = test_lambdas
+    )
+
+  # get best fit lamda
+  best_lamda <- lasso_grid %>%
+    select_best(metric="accuracy")#, maximise = TRUE) # maximize "roc_auc" or "accuracy"
+
+  # fit and predict
+  pred <- wf %>% 
+    finalize_workflow(best_lamda) %>%
+    fit(data = df_boot) %>%
+    predict(new_data = df_test) %>%
+    rename_with(~paste("Bootstrap", boot_num, "_S", s, sep=""), .pred_class)
+    # rename_with(~paste("Partition", part_num, "_Bootstrap", boot_num, sep=""), .pred_class)
+  
+  # add song labels to prediction
+  if (boot_num==1) { # } & part_num==1) {
+    pred <- cbind(
+      df_test %>% select(song, type),
+      pred)
+  }
+  
+  # return
+  return(pred)
+}
+
+# fit ensemble lasso to all songs with cross-validation
+# type list: mir10 or mir4 (list of types to fit -- for bootstrapping training)
+# test_size: how many songs to leave out for testing (1: leave-one-out, 207: approx 80/20 split)
+cvfit_ensemble_lasso <- function(df, wf, type_list, test_size, nboots=1, part=0, s='') {
+  print("=== BEGIN TRAINING ENSAMBLE LASSO ===")
+  ### assign each song to a fold number of set size(df)/test_size
+  df_sample <- df %>% mutate(sampled = FALSE, part = 0)
+  nDF <- nrow(df_sample) # get df size
+  
+  # partition assumption (keep reducing test_size until this works)
+  if (floor(nDF/test_size) < nDF%%test_size) {return(FALSE)}
+  
+  # get sizes of partitions
+  parts <- c(
+    rep(test_size, (floor(nDF/test_size)-nDF%%test_size)),
+    rep(test_size+1, nDF%%test_size)
+    )
+  
+  # assign partitions
+  for (p in 1:length(parts)) {
+    pSize <- parts[p] # size of part
+    
+    df_unsampled <- df_sample %>% filter(!sampled) # remove sampled items
+    rownames(df_unsampled) <- NULL # redo indexing  
+  
+    # generate vector of songs from this list 
+    song_samp <- df_unsampled[sample(1:nrow(df_unsampled),pSize),] %>% 
+      pull(song) # returns names of newly sampled songs
+    
+    # update partition and 
+    df_sample <- df_sample %>% 
+    mutate(
+      sampled = case_when(
+        sampled ~ TRUE,
+        song %in% song_samp ~ TRUE,
+        .default = FALSE
+        ),
+      part = case_when(
+        song %in% song_samp ~ p,
+        .default = part
+        )
+      )
+  }
+  
+  # print(paste("num Partitions:", length(parts)))
+  # print("Parts:")
+  sprintf("num Partitions: %d\nParts", length(parts))
+  print(parts)
+  
+  # fitting loop
+  predictions <- foreach(i=1:length(parts), .combine=rbind) %do%
+    # split train/test based on partition and train
+    (z <- foreach(nboot=1:nboots, .combine=cbind) %dopar%
+      (fit_with_boot(wf, 
+                  df_sample %>% filter(part!=i), # training
+                  df_sample %>% filter(part==i), # testing
+                  type_list,        # mir4 or mir10 (fit which types?)
+                  nboot, nboots,    # for printing "boot: n/total"
+                  i, length(parts), # for printing "part: n/total"
+                  s                 # for labelling columns
+                  ))) %>%
+    merge(df_sample %>% select(song,type)) %>%
+    select(song, type, everything())
+  
+  # return predictions
+  return(predictions)
+}
+
+# return mode of each row (ensamble decision)
+# apply to prediction dataframe
+get_mode <- function(x) {
+  ux <- unique(x) # get options
+  ret <- ux[which.max(tabulate(match(x,ux)))][1] # select most common option
+  return(ret)
+} # using get_mode looks like: apply(data_frame, 1, get_mode)
+
+# combination methods
+merge_by_song <- function(df1, df2) {
+  merge(df1,df2, by=c("song","type"), all=TRUE)
+}
+```
+
+``` {r lasso4-bootstrap}
+#### prepare data #### 
+# reduce df to 4 og types
+mir4 <- nhs2[complete.cases(nhs2),] %>% # remove rows w/NAs
+  filter(type %in% c('Love','Lullaby','Dance','Healing')) %>%
+  droplevels()
+type_list <- unique(mir4$type)
+mir4$type <- as.factor(mir4$type) # char to factor 
+
+# train-test split
+# set.seed(1234)
+# mir4split <- initial_split(mir4, strata=NULL)
+# mir4train <- training(mir4split)
+# mir4test <- testing(mir4split)
+
+# check type proportions
+# mir4train %>% count(type) %>% mutate(prop=n/sum(n))
+# mir4test %>% count(type) %>% mutate(prop=n/sum(n))
+
+#### prepare and tune model #### 
+# create model
+lasso_model <- multinom_reg(mode = "classification", penalty = tune(), mixture = 1) %>%
+  set_engine("glmnet")
+
+# define recipe (pre-processing) & workflow
+mir_recipe <- recipe(type ~ ., data = mir4) %>%
+  update_role(song, region, glottocode, new_role = "ID") %>% # set song+region as not predictors 
+  step_string2factor(type, skip = TRUE) %>% # turn type str into factors (for classification)
+  step_zv(all_numeric(), -all_outcomes()) %>% # remove zero-variance
+  step_normalize(all_numeric(), -all_outcomes()) # normalize
+
+wf <- workflow() %>%
+  add_model(lasso_model) %>%
+  add_recipe(mir_recipe) 
+
+#### bootstrapping data ####
+NBOOTS <- 10 # 1000
+S <- 25 # 25
+test_size <- round(nrow(mir4)/10) - 1
+mir4pred <- foreach(s=1:S, .combine=merge_by_song) %do%
+  cvfit_ensemble_lasso(mir4, wf, type_list, test_size, nboots=NBOOTS, s=s)
+
+# save the file
+filename <- paste("mir4predictions_t-",test_size,"_b-",NBOOTS,"_s-",S,".Rds",sep="")
+saveRDS(mir4pred, file=filename)
+# load
+mir4pred <- readRDS(paste(here(),"/data/",filename,sep=""))
+
+# histogram of accuracies (to confirm enough samples)
+mir4acc <- mir4pred %>% select(-song,-part)
+
+bootstraps_acc <- foreach(i=2:length(mir4acc), .combine=rbind) %do% 
+  accuracy_vec(mir4acc[['type']],mir4acc[[colnames(mir4acc[i])]]) %>%
+  data.frame() %>% rename(accuracy=1)
+bootstraps_acc %>% ggplot(aes(x=accuracy)) + geom_histogram()
+
+# add song data + truth (type)
+mir4ens <- cbind(
+  mir4pred %>% select(song,type),
+  ensamble_pred = as.factor(apply(mir4pred %>% select(-song,-type,-part),1,get_mode))#, x
+  )
+
+mir4ens %>% accuracy(truth=type, ensamble_pred)
+```
+
+``` {r plot-lasso4}
+# calculate accuracy/confusion frequencies
+lasso4acc <- table(
+    mir4ens %>%
+    select(ensamble_pred, type)
+      ) %>%
+  as.data.frame() %>%
+  dplyr::rename(predicted = ensamble_pred, 
+         actual = type) %>%
+  # Frequency as a percentage
+  group_by(actual) %>%
+  mutate(base_freq = sum(Freq)) %>%
+  ungroup() %>%
+  mutate(Freq = (Freq/base_freq)*100,
+         Freq = round(Freq, digits = 1))
+
+# plot confusion matrix
+gg_confusion4 <- lasso4acc %>%
+  mutate(diag = predicted==actual) %>%
+  mutate(predicted = factor(predicted, levels = c("Lullaby", "Dance", "Love", "Healing")),
+         actual = factor(actual, levels = c("Healing", "Love", "Dance", "Lullaby"))) %>%
+  ggplot(aes(x = predicted, y = actual, fill = Freq)) +
+  geom_tile(color="black", linewidth=.2) +
+  geom_text(aes(label = paste(Freq,"%"), vjust = 1, color=diag)) +
+  scale_fill_gradient(low = "white", high = "blue") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 315, vjust = 0.5, hjust=1)) + 
+  scale_x_discrete(position="top") +
+  scale_color_manual(values=c("#444444","#000000"),guide=FALSE) +
+  labs(x = "Predicted Song Type",
+       y = "Actual Song Type",
+       fill = "% percentage")
+gg_confusion4
+```
+
+``` {r lasso10-bootstrap}
+#### prepare data #### 
+# remove missing data
+mir10 <- nhs2[complete.cases(nhs2),] # remove rows w/NAs
+type_list <- unique(mir10$type)
+mir10$type <- as.factor(mir10$type) # char to factor 
+
+#### prepare and tune model #### 
+# create model
+lasso_model <- multinom_reg(mode = "classification", penalty = tune(), mixture = 1) %>%
+  set_engine("glmnet")
+
+# define recipe (pre-processing) & workflow
+mir_recipe <- recipe(type ~ ., data = mir10) %>%
+  update_role(song, region, glottocode, new_role = "ID") %>% # set song+region as not predictors 
+  step_string2factor(type, skip = TRUE) %>% # turn type str into factors (for classification)
+  step_zv(all_numeric(), -all_outcomes()) %>% # remove zero-variance
+  step_normalize(all_numeric(), -all_outcomes()) # normalize
+
+wf <- workflow() %>%
+  add_model(lasso_model) %>%
+  add_recipe(mir_recipe) 
+
+#### bootstrapping data ####
+NBOOTS <- 10
+S <- 25
+test_size <- round(nrow(mir10)/10)-1
+mir10pred <- foreach(s=1:S, .combine=merge_by_song) %do%
+  cvfit_ensemble_lasso(mir10, wf, type_list, test_size, nboots=NBOOTS, s=s)
+
+# save the file
+filename <- paste("mir10predictions_t-",test_size,"_b-",NBOOTS,"_s-", s, ".Rds",sep="")
+saveRDS(mir10pred, file=filename)
+# load
+mir10pred <- readRDS(paste(here(),"/data/",filename,sep=""))
+
+# histogram of accuracies (to confirm enough samples)
+mir10acc <- mir10pred %>% select(-song,-part)
+
+bootstraps_acc <- foreach(i=2:length(mir10acc), .combine=rbind) %do% 
+  accuracy_vec(mir10acc[['type']],mir10acc[[colnames(mir10acc[i])]]) %>%
+  data.frame() %>% rename(accuracy=1)
+bootstraps_acc %>% ggplot(aes(x=accuracy)) + geom_histogram()
+
+# add song data + truth (type)
+mir10ens <- cbind(
+  mir10pred %>% select(song,type),
+  ensamble_pred = as.factor(apply(mir10pred %>% select(-song,-type,-part),1,get_mode))#, x
+  )
+
+mir10ens %>% accuracy(truth=type, ensamble_pred)
+
+```
+
+``` {r plot-lasso10-bootstrapped}
+# calculate accuracy/confusion frequencies
+lasso10acc <- table(
+    mir10ens %>%
+    select(ensamble_pred, type)
+      ) %>%
+  as.data.frame() %>%
+  dplyr::rename(predicted = ensamble_pred, 
+         actual = type) %>%
+  # Frequency as a percentage
+  group_by(actual) %>%
+  mutate(base_freq = sum(Freq)) %>%
+  ungroup() %>%
+  mutate(Freq = (Freq/base_freq)*100,
+         Freq = round(Freq, digits = 1))
+
+# for sorting
+xlvl <- lasso10acc %>% 
+  filter(actual==predicted) %>%
+  arrange(desc(Freq)) %>% pull(actual)
+ylvl <- lasso10acc %>% 
+  filter(actual==predicted) %>%
+  arrange(Freq) %>% pull(actual)
+
+# plot confusion matrix
+gg_confusion10 <- lasso10acc %>%
+  mutate(diag = predicted==actual) %>%
+  mutate(predicted = factor(predicted, levels = xlvl),
+         actual = factor(actual, levels = ylvl)) %>%
+  ggplot(aes(x = predicted, y = actual, fill = Freq)) +
+  geom_tile(color="black", linewidth=.2) +
+  geom_text(aes(label = paste(Freq,"%", sep=""), vjust = 1, color=diag)) +
+  scale_fill_gradient(low = "white", high = "#5555ff") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 315, vjust = 0.5, hjust=1)) + 
+  scale_x_discrete(position="top") +
+  scale_color_manual(values=c("#444444","#000000"),guide=FALSE) +
+  labs(x = "Predicted Song Type",
+       y = "Actual Song Type",
+       fill = "% percentage")
+gg_confusion10
+```
+
+``` {r new-lasso10-fomrulating}
+filename <- paste("mir10predictions_t-",100,"_b-",10,"_s-",25,".Rds",sep="")
+mir10pred2 <- readRDS(paste(here(),"writing",filename,sep="/"))
+
+mir10pred2new <- mir10pred2[1:1003,]
+
+i <- 1
+j <- 2
+for (n in 2:25) {
+  
+  i <- i + 1003
+  x <- mir10pred2[i:(i+1002),]
+  
+  b_name <- c(paste("Bootstrap_",(j-1),1:9,sep=""), paste("Bootstrap_",(j),0,sep=""))
+  oldnames <- c(c(paste("Bootstrap_",1:9,sep=""), paste("Bootstrap_",10,sep="")))
+  y <- x %>% 
+    select(-song,-part,-type) %>% 
+    rename_with(~b_name[(which(oldnames==.x))], .cols=oldnames)
+  j <- j+1
+  
+  mir10pred2new <- mir10pred2new %>% cbind(y)
+}
+
+# saveRDS(mir10pred2new, file = paste("mir10predictions_t-",100,"_b-",10,"_s-",25,"_flat.Rds",sep=""))
+```
+
+``` {r newlassoplot}
+# histogram of accuracies (to confirm enough samples)
+mir10acc <- mir10pred2 %>% select(-song,-part)
+
+bootstraps_acc <- foreach(i=2:length(mir10acc), .combine=rbind) %do% 
+  accuracy_vec(mir10acc[['type']],mir10acc[[colnames(mir10acc[i])]]) %>%
+  data.frame() %>% rename(accuracy=1)
+bootstraps_acc %>% ggplot(aes(x=accuracy)) + geom_histogram()
+
+# add song data + truth (type)
+mir10ens <- cbind(
+  mir10pred2 %>% select(song,type),
+  ensamble_pred = as.factor(apply(mir10pred2 %>% select(-song,-type,-part),1,get_mode))#, x
+  )
+
+mir10ens2 <- mir10ens %>% group_by(song,type) %>% summarise(ensamble_pred = get_mode(ensamble_pred)) %>% ungroup()
+mir10ens2 %>% accuracy(truth=type, ensamble_pred)
+
+# calculate accuracy/confusion frequencies
+lasso10acc <- table(
+    mir10ens2 %>%
+    select(ensamble_pred, type)
+      ) %>%
+  as.data.frame() %>%
+  dplyr::rename(predicted = ensamble_pred, 
+         actual = type) %>%
+  # actual frequecy
+  group_by(actual) %>%
+  mutate(base_freq = sum(Freq)) %>%
+  ungroup() %>%
+  mutate(pFreq = round((Freq/base_freq)*100, digits = 1))  %>%
+  # predicted frequency
+  group_by(predicted) %>%
+  mutate(pred_freq = sum(Freq)) %>%
+  ungroup() %>%
+  mutate(marg = round((pred_freq/nrow(mir10ens))*100, digits = 1))
+# get prediction margins
+margins10 <- lasso10acc %>%
+  select(predicted,marg) %>%
+  unique()
+
+# calculate d'
+hit_rate <- lasso10acc %>% 
+  group_by(actual) %>%
+  filter(actual==predicted) %>%
+  summarise(hit_rate = Freq/base_freq) %>%
+  rename(actual=1)
+
+fa_rate <- lasso10acc %>% 
+  group_by(predicted) %>%
+  filter(actual!=predicted) %>%
+  summarise(fa_rate = sum(Freq)/sum(base_freq)) %>%
+  rename(actual=1)
+
+dprime10 <- merge(hit_rate,fa_rate) %>%
+  mutate(d = qnorm(hit_rate) - qnorm(fa_rate)) %>%
+  mutate(actual = fct_reorder(actual, desc(d)))
+
+# for sorting
+xlvl <- dprime10 %>% 
+  arrange(desc(d)) %>% pull(actual)
+ylvl <-  dprime10 %>% 
+  arrange(d) %>% pull(actual)
+
+# plot confusion matrix
+gg_confusion10 <- lasso10acc %>%
+  mutate(diag = predicted==actual) %>%
+  mutate(predicted = factor(predicted, levels = xlvl),
+         actual = factor(actual, levels = ylvl)) %>%
+  ggplot(aes(x = predicted, y = actual, fill = pFreq)) +
+  geom_tile(color="black", linewidth=.2) +
+  geom_text(aes(label = paste(pFreq,"%", sep=""), color=diag), size=3.25) +
+  scale_fill_gradient(low = "white", high = "#7777ff") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 315, vjust = 0.5, hjust=1)) + 
+  scale_x_discrete(position="top") +
+  scale_color_manual(values=c("#444444","#000000"),guide="none") +
+  labs(x = "Predicted Song Type",
+       y = "Actual Song Type",
+       fill = "% correct")
+
+dfig <- dprime10 %>% 
+  mutate(actual = factor(actual, levels = ylvl)) %>%
+  ggplot(aes(y=actual)) +
+  geom_label(aes(label=round(d,digits=2), x=.1), size=4.3,
+             label.padding = unit(.6,"lines")) +
+  theme_void() + 
+  labs(x="d'") +
+  theme(axis.title.x = element_text()) +
+  scale_x_discrete(position = "top") 
+
+mfig <- margins10 %>% 
+ mutate(predicted = factor(predicted, levels = xlvl)) %>%
+  ggplot(aes(x=predicted)) +
+  geom_text(aes(label=paste(marg,"%",sep="")), size=2.5,
+             color="#555555", y=.9) +
+  theme_void()
+# mfig
+
+gg_confusion10 + inset_element(mfig,l=0, b=-.75,r=1,t=.1) + dfig + 
+  plot_layout(guides="collect", widths=c(.92,.09))
+```
+
+
+
+
