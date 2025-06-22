@@ -1,6 +1,6 @@
 # The Expanded Natural History of Song Discography, a global corpus of vocal music
 
-This is the repository for Bertolo et al. (2025) "The Expanded Natural History of Song Discography, a global corpus of vocal music". You can read the paper at https://osf.io/preprints/psyarxiv/d2ftg and access the corpus at https://doi.org/10.5281/zenodo.8237500.
+This is the repository for  "The Expanded Natural History of Song Discography, a global corpus of vocal music" (Bertolo et al., 2025, *Open Mind*). You can read the paper at https://osf.io/preprints/psyarxiv/d2ftg and access the corpus at https://doi.org/10.5281/zenodo.8237500.
 
 ## Anatomy of the repo 
 `NHS2-manuscript.Rmd` contains all writing, analyses, and bibliography for the generation of the final manuscript file `NHS2-manuscript.pdf`. `themusiclab.bib` contains relevant bibtex keys, and `apa-auto_cofirsts.csl` specifies APA style citation formatting. 
