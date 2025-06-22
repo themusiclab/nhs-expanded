@@ -16,3 +16,5 @@ This is the repository for  "The Expanded Natural History of Song Discography, a
 ## Assistance
 
 If you need help with any materials associated with this project, please contact Mila Bertolo (mila.bertolo@mail.mcgill.ca), Marty Snarskis (msna962@aucklanduni.ac.nz), and Samuel Mehr (sam@auckland.ac.nz).
+
+[![DOI](https://zenodo.org/badge/939009168.svg)](https://doi.org/10.5281/zenodo.15717353)
